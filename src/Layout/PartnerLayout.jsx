@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import PartnerSidebar from "../components/common/Sidebars/PartnerSidebar";
 import TopNavbar from "../components/common/PartnerNavbar";
+import { fetchLeads } from "../redux/features/leads/leadsSlice";
 
 const sectionTitles = {
   dashboard: "Dashboard",
@@ -18,6 +20,13 @@ export default function PartnerLayout() {
   const segment = pathname.split("/").filter(Boolean).pop();
   const title = sectionTitles[segment] || "Dashboard";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const dispatch = useDispatch();
+
+  // Load leads from the backend whenever the partner area mounts (e.g. after login/refresh),
+  // so the Redux store is repopulated and the data doesn't "disappear".
+  useEffect(() => {
+    dispatch(fetchLeads());
+  }, [dispatch]);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 font-sans lg:flex-row">
