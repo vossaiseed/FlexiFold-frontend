@@ -5,9 +5,15 @@ import { getCookie } from "../../utils/cookies";
 // Shared axios instance used by every slice.
 const api = axios.create({ baseURL: BASE_URL });
 
-// Attach the auth token (stored in a cookie) to every outgoing request.
+// Ensure cookies (including the httpOnly session cookie) are sent with requests.
+api.defaults.withCredentials = true;
+
+// Attach the auth token to every request. The session cookie is httpOnly (so
+// JS can't read it), so we read the access token persisted in localStorage by
+// the auth slice and send it as a Bearer header — auth-required endpoints
+// (e.g. /settings) accept either the cookie or this header.
 api.interceptors.request.use((config) => {
-  const token = getCookie("token");
+  const token = localStorage.getItem("token") || getCookie("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

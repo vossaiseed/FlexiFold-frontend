@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import Leadcategory from "../../components/admin/AssignedLeads/Leadcategory";
 import { updateLead } from "../../redux/features/leads/leadsSlice";
 import { REJECTED_STATUS, getLeadId, formatLeadTime, leadOwnerName } from "../../utils/leadHelpers";
@@ -16,24 +16,18 @@ const toCard = (lead) => ({
   assignee: leadOwnerName(lead),
 });
 
-export default function GeneralLeads() {
+export default function LMLeads() {
   const dispatch = useDispatch();
-  const leads = useSelector((store) => store.leads.leads);
+  const leads = useSelector((s) => s.leads.leads);
 
-  // General Leads = every lead except those already rejected (which live in Trash).
-  // The status tabs inside Leadcategory let the admin filter further.
-  const generalLeads = useMemo(
-    () => (leads || []).filter((lead) => lead?.status !== REJECTED_STATUS).map(toCard),
+  const rows = useMemo(
+    () => (leads || []).filter((l) => l?.status !== REJECTED_STATUS).map(toCard),
     [leads]
   );
 
-  // Deleting moves the lead to Trash (restorable there) rather than hard-deleting.
+  // Deleting moves the lead to Trash (status Rejected) rather than hard-deleting.
   const handleDelete = (id) =>
     dispatch(updateLead({ leadId: id, changes: { status: REJECTED_STATUS } }));
 
-  return (
-    <div>
-      <Leadcategory leadsData={generalLeads} onDelete={handleDelete} />
-    </div>
-  );
+  return <Leadcategory leadsData={rows} onDelete={handleDelete} />;
 }

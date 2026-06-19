@@ -1,9 +1,14 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import { Plus } from 'lucide-react'
 import LMSidebar from '../components/common/Sidebars/LMSidebar'
 import AddLead from '../components/admin/Partner/PartnerDetails/AddLead'
 import UserMenu from '../components/common/UserMenu'
+import { fetchLeads } from '../redux/features/leads/leadsSlice'
+import { fetchSalesTeam } from '../redux/features/salesTeam/salesTeamSlice'
+import { fetchConversions } from '../redux/features/conversions/conversionsSlice'
+import useRefetchOnFocus from '../utils/useRefetchOnFocus'
 
 const sectionTitles = {
   dashboard: 'Overview',
@@ -17,6 +22,17 @@ export default function LMDashLayout() {
   const segment = pathname.split('/').filter(Boolean).pop()
   const title = sectionTitles[segment] || 'Overview'
   const [showAddLead, setShowAddLead] = useState(false)
+  const dispatch = useDispatch()
+
+  // Load everything the Lead Manager area summarises.
+  const loadAll = () => {
+    dispatch(fetchLeads())
+    dispatch(fetchSalesTeam())
+    dispatch(fetchConversions())
+  }
+  useEffect(() => { loadAll() }, [dispatch])
+  // Refresh when returning to the tab so cross-role changes appear.
+  useRefetchOnFocus(loadAll)
 
   return (
     <div className="flex min-h-screen bg-gray-50" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -33,7 +49,7 @@ export default function LMDashLayout() {
             >
               <Plus className="h-4 w-4" /> Add Lead
             </button>
-            <UserMenu name="Admin" role="Lead Manager" email="admin@flexifold.com" initial="LM" />
+            <UserMenu />
           </div>
         </header>
 

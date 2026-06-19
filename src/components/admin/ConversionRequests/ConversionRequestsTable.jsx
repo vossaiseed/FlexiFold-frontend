@@ -1,47 +1,12 @@
 import React, { useMemo, useState } from "react";
-
-const rows = [
-  {
-    leadName: "Toji Joseph & Brothers",
-    customerName: "Mr. Joseph",
-    salesStaff: "Priya Menon",
-    amount: "$18,400",
-    date: "Jun 4, 2026",
-    status: "Pending",
-  },
-  {
-    leadName: "Hashir Ali",
-    customerName: "Hashir Ali",
-    salesStaff: "Anisha Patel",
-    amount: "$11,200",
-    date: "Jun 3, 2026",
-    status: "Approved",
-  },
-  {
-    leadName: "Anup Wayanad",
-    customerName: "Anoop Wayanad",
-    salesStaff: "Benazir Ameen",
-    amount: "$9,750",
-    date: "Jun 2, 2026",
-    status: "Rejected",
-  },
-  {
-    leadName: "Sreenath",
-    customerName: "Sreenath",
-    salesStaff: "Vishal Kumar",
-    amount: "$15,200",
-    date: "Jun 1, 2026",
-    status: "Pending",
-  },
-  {
-    leadName: "Aslam Munnar",
-    customerName: "Aslam Munnar",
-    salesStaff: "Benazir Ameen",
-    amount: "$7,900",
-    date: "May 31, 2026",
-    status: "Approved",
-  },
-];
+import { useSelector, useDispatch } from "react-redux";
+import {
+  updateConversion,
+  selectConversions,
+  selectConversionsLoading,
+} from "../../../redux/features/conversions/conversionsSlice";
+import { updateLead } from "../../../redux/features/leads/leadsSlice";
+import { formatLeadDate } from "../../../utils/leadHelpers";
 
 const statusStyles = {
   Pending: "bg-slate-100 text-slate-700",
@@ -49,11 +14,42 @@ const statusStyles = {
   Rejected: "bg-red-100 text-red-700",
 };
 
+const money = (amount) =>
+  amount === null || amount === undefined || amount === "" ? "—" : `₹${amount}`;
+
+// Map a backend conversion row → the shape this table renders. Keep `raw` so
+// the details view gets the full record.
+const toRow = (c) => ({
+  id: c.id,
+  leadName: c.lead_name || "—",
+  customerName: c.customer_name || c.lead_name || "—",
+  salesStaff: c.sales_staff_name || "Unassigned",
+  amount: money(c.amount),
+  date: formatLeadDate(c.created_at),
+  status: c.status || "Pending",
+  raw: c,
+});
+
 export default function ConversionRequestsTable({ onView }) {
+  const dispatch = useDispatch();
+  const conversions = useSelector(selectConversions);
+  const loading = useSelector(selectConversionsLoading);
+
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  // Default to the actionable queue — decided (Approved/Rejected) requests drop
+  // out of view once handled, but stay reachable via the filter dropdown.
+  const [statusFilter, setStatusFilter] = useState("Pending");
   const [page, setPage] = useState(1);
+  const [busyId, setBusyId] = useState(null);
   const pageSize = 5;
+
+  const rows = useMemo(() => (conversions || []).map(toRow), [conversions]);
+
+  const emptyMsg = loading
+    ? "Loading conversions…"
+    : statusFilter === "Pending" && !search
+    ? "No pending conversion requests."
+    : "No matching results.";
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
@@ -65,13 +61,25 @@ export default function ConversionRequestsTable({ onView }) {
       const matchesStatus = statusFilter === "All" || row.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [search, statusFilter]);
+  }, [rows, search, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const visibleRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
 
   const handlePrev = () => setPage((value) => Math.max(1, value - 1));
   const handleNext = () => setPage((value) => Math.min(pageCount, value + 1));
+
+  const decide = async (row, status) => {
+    setBusyId(row.id);
+    try {
+      await dispatch(updateConversion({ id: row.id, changes: { status } })).unwrap();
+      // Approving the request marks the underlying lead "Converted".
+      if (status === "Approved" && row.raw?.lead_id) {
+        await dispatch(updateLead({ leadId: row.raw.lead_id, changes: { status: "Converted" } })).unwrap();
+      }
+    } catch { /* error surfaced via slice state */ }
+    finally { setBusyId(null); }
+  };
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/40">
@@ -83,7 +91,7 @@ export default function ConversionRequestsTable({ onView }) {
           <h2 className="mt-2 text-2xl font-semibold text-slate-950">Conversion requests</h2>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(260px,_360px)_180px] xl:items-center">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(260px,360px)_180px] xl:items-center">
           <label className="relative block w-full">
             <span className="sr-only">Search conversions</span>
             <input
@@ -121,12 +129,12 @@ export default function ConversionRequestsTable({ onView }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
         {visibleRows.length === 0 ? (
           <p className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-            No matching results.
+            {emptyMsg}
           </p>
         ) : (
-          visibleRows.map((row, index) => (
+          visibleRows.map((row) => (
             <div
-              key={`${row.leadName}-card-${index}`}
+              key={row.id}
               className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
             >
               <div className="flex items-start justify-between gap-3">
@@ -157,15 +165,25 @@ export default function ConversionRequestsTable({ onView }) {
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <button
                   type="button"
-                  onClick={() => onView?.(row)}
+                  onClick={() => onView?.(row.raw)}
                   className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   View
                 </button>
-                <button className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600">
+                <button
+                  type="button"
+                  disabled={busyId === row.id || row.status === "Approved"}
+                  onClick={() => decide(row, "Approved")}
+                  className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Approve
                 </button>
-                <button className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-200">
+                <button
+                  type="button"
+                  disabled={busyId === row.id || row.status === "Rejected"}
+                  onClick={() => decide(row, "Rejected")}
+                  className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Reject
                 </button>
               </div>
@@ -190,12 +208,12 @@ export default function ConversionRequestsTable({ onView }) {
             {visibleRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">
-                  No matching results.
+                  {emptyMsg}
                 </td>
               </tr>
             ) : (
-              visibleRows.map((row, index) => (
-                <tr key={`${row.leadName}-${index}`} className="bg-slate-50 rounded-3xl shadow-sm">
+              visibleRows.map((row) => (
+                <tr key={row.id} className="bg-slate-50 rounded-3xl shadow-sm">
                   <td className="px-4 py-4 align-top text-slate-900">{row.leadName}</td>
                   <td className="px-4 py-4 align-top text-slate-700">{row.customerName}</td>
                   <td className="px-4 py-4 align-top text-slate-700">{row.salesStaff}</td>
@@ -210,15 +228,25 @@ export default function ConversionRequestsTable({ onView }) {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => onView?.(row)}
+                        onClick={() => onView?.(row.raw)}
                         className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         View
                       </button>
-                      <button className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600">
+                      <button
+                        type="button"
+                        disabled={busyId === row.id || row.status === "Approved"}
+                        onClick={() => decide(row, "Approved")}
+                        className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
                         Approve
                       </button>
-                      <button className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-200">
+                      <button
+                        type="button"
+                        disabled={busyId === row.id || row.status === "Rejected"}
+                        onClick={() => decide(row, "Rejected")}
+                        className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
                         Reject
                       </button>
                     </div>

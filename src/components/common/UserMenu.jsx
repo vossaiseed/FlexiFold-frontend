@@ -1,14 +1,36 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, LogOut, Mail } from "lucide-react";
+import { logout as logoutAction } from "../../redux/features/auth/authSlice";
+import api from "../../redux/services/api";
 
-export default function UserMenu({ name = "Admin", role = "Administrator", email = "admin@flexifold.com", initial }) {
+const ROLE_LABELS = {
+  admin: "Administrator",
+  "lead-manager": "Lead Manager",
+  partner: "Partner",
+  sales: "Sales",
+  telecaller: "Telecaller",
+};
+
+export default function UserMenu({ name: nameProp, role: roleProp, email: emailProp, initial }) {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const ini = initial || name?.trim()?.[0]?.toUpperCase() || "U";
+  const dispatch = useDispatch();
+  const { user } = useSelector((s) => s.auth);
+  const meta = user?.user_metadata || {};
 
-  const logout = () => {
+  // Prefer the logged-in user; fall back to any props passed in.
+  const name = meta.name || nameProp || "User";
+  const email = user?.email || emailProp || "";
+  const role = ROLE_LABELS[meta.role] || roleProp || meta.role || "";
+
+  const [open, setOpen] = useState(false);
+  const ini = (name?.trim()?.[0] || initial || "U").toUpperCase();
+
+  const logout = async () => {
     setOpen(false);
+    try { await api.post("/auth/logout"); } catch { /* ignore — clear client state anyway */ }
+    dispatch(logoutAction());
     navigate("/login");
   };
 

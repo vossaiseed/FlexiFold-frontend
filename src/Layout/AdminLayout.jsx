@@ -1,8 +1,19 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import AdminSidebar from '../components/common/Sidebars/AdminSidebar'
 import { Outlet } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { fetchLeads } from '../redux/features/leads/leadsSlice'
+import useRefetchOnFocus from '../utils/useRefetchOnFocus'
 
 export default function AdminLayout() {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(fetchLeads());
+  }, [dispatch]);
+
+  // Pick up changes other roles made while this tab was in the background.
+  useRefetchOnFocus(() => dispatch(fetchLeads()));
   return (
     <div className='flex'>
       <AdminSidebar />

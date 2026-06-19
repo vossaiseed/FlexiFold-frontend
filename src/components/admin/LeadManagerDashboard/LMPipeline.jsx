@@ -1,15 +1,22 @@
 import React from "react";
+import { useSelector } from "react-redux";
 
-const pipeline = [
-  { label: "Pending", value: 0, color: "#f59e0b" },
-  { label: "New", value: 48, color: "#3b82f6" },
-  { label: "Discussion", value: 2, color: "#8b5cf6" },
-  { label: "Follow-up", value: 0, color: "#f97316" },
-  { label: "Converted", value: 0, color: "#10b981" },
-  { label: "Failed", value: 0, color: "#ef4444" },
+const STAGES = [
+  { label: "Pending", status: "Pending", color: "#f59e0b" },
+  { label: "New", status: "New", color: "#3b82f6" },
+  { label: "Discussion", status: "Discussion", color: "#8b5cf6" },
+  { label: "Follow-up", status: "Follow-up", color: "#f97316" },
+  { label: "Converted", status: "Converted", color: "#10b981" },
+  { label: "Failed", status: "Failed", color: "#ef4444" },
 ];
 
 export default function LMPipeline() {
+  const leads = useSelector((s) => s.leads.leads) || [];
+  const pipeline = STAGES.map((s) => ({
+    ...s,
+    value: leads.filter((l) => l.status === s.status).length,
+  }));
+
   return (
     <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-2">

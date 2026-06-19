@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { X, Mic } from "lucide-react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams } from "react-router-dom";
 import { createLead } from "../../../../redux/features/leads/leadsSlice";
 
 const inputClass =
@@ -9,6 +10,8 @@ const labelClass = "text-[10px] font-semibold uppercase tracking-[0.15em] text-s
 
 export default function AddLead({ onClose }) {
   const dispatch = useDispatch();
+  const { id: routePartnerId } = useParams();
+  const { user } = useSelector((state) => state.auth);
   const [form, setForm] = useState({
     mobile: "",
     clientName: "",
@@ -24,13 +27,31 @@ export default function AddLead({ onClose }) {
     notes: "",
   });
   const [recording, setRecording] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError("");
 
-    // Map the form fields to the column names the API/database expects.
+    const role = user?.user_metadata?.role || user?.role;
+    let finalPartnerId = null;
+    let finalAssignedTo = null;
+
+    if (role === "partner") {
+      finalPartnerId = user?.id;
+      finalAssignedTo = user?.id;
+    } else if (routePartnerId) {
+      finalPartnerId = routePartnerId;
+    }
+
     const payload = {
       name: form.clientName,
       phone: form.mobile,
@@ -45,13 +66,25 @@ export default function AddLead({ onClose }) {
       language: form.language,
       status: "New",
       notes: form.notes,
+      partner_id: finalPartnerId,
+      assigned_to: finalAssignedTo,
     };
+
+    if (!form.clientName.trim() || !form.mobile.trim()) {
+      setError("Client name and mobile number are required.");
+      submittingRef.current = false;
+      setSubmitting(false);
+      return;
+    }
 
     try {
       await dispatch(createLead(payload)).unwrap();
       onClose();
     } catch (err) {
-      console.log(err);
+      setError(typeof err === "string" ? err : "Could not add the lead. Please try again.");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -59,7 +92,6 @@ export default function AddLead({ onClose }) {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70">
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
-        {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-base font-bold text-slate-900">Add New Lead</h2>
@@ -76,10 +108,8 @@ export default function AddLead({ onClose }) {
           </button>
         </div>
 
-        {/* Form body */}
         <form onSubmit={handleSubmit}>
           <div className="space-y-3 px-6 py-4">
-            {/* Mobile + Client Name */}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Mobile Number *</span>
@@ -106,7 +136,6 @@ export default function AddLead({ onClose }) {
               </label>
             </div>
 
-            {/* Location + State */}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Location (City)</span>
@@ -130,7 +159,6 @@ export default function AddLead({ onClose }) {
               </label>
             </div>
 
-            {/* WhatsApp + Email */}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>WhatsApp Number (Optional)</span>
@@ -156,7 +184,6 @@ export default function AddLead({ onClose }) {
               </label>
             </div>
 
-            {/* Urgency + Designation */}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Urgency</span>
@@ -179,7 +206,6 @@ export default function AddLead({ onClose }) {
               </label>
             </div>
 
-            {/* Primary Language + Number of Units */}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Primary Language</span>
@@ -205,7 +231,6 @@ export default function AddLead({ onClose }) {
               </label>
             </div>
 
-            {/* Enquired Model & Details */}
             <label className="block">
               <span className={labelClass}>Enquired Model & Details</span>
               <textarea
@@ -218,7 +243,6 @@ export default function AddLead({ onClose }) {
               />
             </label>
 
-            {/* Notes */}
             <label className="block">
               <span className={labelClass}>Notes</span>
               <textarea
@@ -231,7 +255,6 @@ export default function AddLead({ onClose }) {
               />
             </label>
 
-            {/* Voice Note */}
             <div className="block">
               <span className={labelClass}>Voice Note (Optional)</span>
               <button
@@ -249,13 +272,18 @@ export default function AddLead({ onClose }) {
             </div>
           </div>
 
-          {/* Footer CTA */}
           <div className="border-t border-slate-100 px-6 py-3">
+            {error && (
+              <p className="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {error}
+              </p>
+            )}
             <button
               type="submit"
-              className="w-full rounded-full bg-green-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-green-200 transition hover:bg-green-600"
+              disabled={submitting}
+              className="w-full rounded-full bg-green-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-green-200 transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Submit Lead for Review
+              {submitting ? "Submitting..." : "Submit Lead for Review"}
             </button>
           </div>
         </form>

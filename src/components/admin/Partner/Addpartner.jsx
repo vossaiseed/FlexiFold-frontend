@@ -1,27 +1,62 @@
 import React from 'react'
+import { useDispatch } from 'react-redux'
+import { createPartner, updatePartner } from '../../../redux/features/partners/partnersSlice'
 
 export default function Addpartner({ mode, partner, onClose }) {
+    const dispatch = useDispatch();
     const [form, setForm] = React.useState({
         name: partner?.name || '',
-        phone: partner?.phone || '',  
+        phone: partner?.phone || '',
         email: partner?.email || '',
-        location: partner?.location || '',
+        location: partner?.city || '',
         state: partner?.state || '',
         password: partner?.password || '',
-        company:partner?.company || '',
-        role: partner?.status || 'Authorized Partner',
+        company: partner?.companyname || '',
+        role: partner?.role || 'Authorized Partner',
+        commission_rate: partner?.commission_rate ?? 10,
     });
+    const [submitting, setSubmitting] = React.useState(false);
+    const [error, setError] = React.useState('');
 
     const handleChange = (e) => {
-        setForm({...form,[e.target.name]:e.target.value})
-    }
+        setForm({ ...form, [e.target.name]: e.target.value });
+    };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-       
-        console.log(form);
-        onClose();
-    }
+        setError('');
+        if (!form.name.trim() || !form.phone.trim()) {
+            setError('Full name and phone are required.');
+            return;
+        }
+
+        // Map the form fields to the `partner` table columns.
+        const payload = {
+            name: form.name,
+            phone: form.phone,
+            email: form.email || null, // null avoids the unique-email clash on empty strings
+            password: form.password,
+            companyname: form.company,
+            city: form.location,
+            state: form.state,
+            role: form.role,
+            commission_rate: form.commission_rate === "" ? null : Number(form.commission_rate),
+        };
+
+        setSubmitting(true);
+        try {
+            if (mode === 'edit' && partner?.id) {
+                await dispatch(updatePartner({ partnerId: partner.id, changes: payload })).unwrap();
+            } else {
+                await dispatch(createPartner(payload)).unwrap();
+            }
+            onClose();
+        } catch (err) {
+            setError(typeof err === 'string' ? err : 'Failed to save partner. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
      
   return (
@@ -113,16 +148,31 @@ export default function Addpartner({ mode, partner, onClose }) {
             </label>
           </div>
 
-          <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Company Name (optional)</span>
-            <input
-              name="company"
-              value={form.company}
-              onChange={handleChange}
-              placeholder="Company name"
-              className="mt-2 w-full rounded-2xl border border-green-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100"
-            />
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Company Name (optional)</span>
+              <input
+                name="company"
+                value={form.company}
+                onChange={handleChange}
+                placeholder="Company name"
+                className="mt-2 w-full rounded-2xl border border-green-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Commission Rate (%)</span>
+              <input
+                name="commission_rate"
+                type="number"
+                min="0"
+                max="100"
+                value={form.commission_rate}
+                onChange={handleChange}
+                placeholder="e.g. 10"
+                className="mt-2 w-full rounded-2xl border border-green-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100"
+              />
+            </label>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
             <label className="block">
@@ -149,19 +199,27 @@ export default function Addpartner({ mode, partner, onClose }) {
             </div>
           </div>
 
+          {error && (
+            <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </p>
+          )}
+
           <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              disabled={submitting}
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-green-700"
+              disabled={submitting}
+              className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {mode === "edit" ? "Update Partner" : "Create Account"}
+              {submitting ? "Saving…" : mode === "edit" ? "Update Partner" : "Create Account"}
             </button>
           </div>
         </form>

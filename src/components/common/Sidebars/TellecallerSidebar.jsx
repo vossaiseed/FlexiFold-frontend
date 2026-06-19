@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { LayoutDashboard, Users, PhoneCall, CalendarClock, Bell, User, ChevronUp, LogOut, X } from "lucide-react";
+import { logout as logoutAction } from "../../../redux/features/auth/authSlice";
+import api from "../../../redux/services/api";
 
 export const telecallerNav = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/telecaller/dashboard" },
@@ -11,15 +14,24 @@ export const telecallerNav = [
   { label: "Profile", icon: User, to: "/telecaller/profile" },
 ];
 
-const currentUser = { name: "Anjana Krishnan", role: "Telecaller", initial: "A" };
-
 function SidebarBody({ onNavClick }) {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const handleLogout = () => {
+  const { user } = useSelector((s) => s.auth);
+  const meta = user?.user_metadata || {};
+  const currentUser = {
+    name: meta.name || "Telecaller",
+    role: "Telecaller",
+    initial: (meta.name?.[0] || "T").toUpperCase(),
+  };
+
+  const handleLogout = async () => {
     setMenuOpen(false);
     onNavClick?.();
+    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    dispatch(logoutAction());
     navigate("/login");
   };
 

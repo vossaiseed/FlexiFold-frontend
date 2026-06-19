@@ -1,26 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { leadsData as defaultLeadsData } from "./LeadsCard";
 import LeadCard from "./LeadsCard";
 import LeadModal from "./LeadModal";
 
-export default function Leadcategory({ leadsData = defaultLeadsData }) {
+// Canonical display order for the status tabs; only statuses actually present
+// in the data get a tab, so this component stays correct whatever it's fed.
+const STATUS_ORDER = ["New", "Pending", "Discussion", "Follow-up", "In Progress", "Converted", "Failed", "Rejected"];
+
+export default function Leadcategory({ leadsData = defaultLeadsData, onDelete }) {
   const [activeTab, setActiveTab] = useState("All");
   const [query, setQuery] = useState("");
   const [leads, setLeads] = useState(Array.isArray(leadsData) ? leadsData : []);
   const [selectedLead, setSelectedLead] = useState(null);
 
-  const handleDelete = (id) => setLeads(prev => prev.filter(Boolean).filter(l => l.id !== id));
+  // Keep local state in sync when the source data changes (e.g. leads loaded
+  // from Redux after the initial render, or a lead is approved/rejected).
+  useEffect(() => {
+    setLeads(Array.isArray(leadsData) ? leadsData : []);
+  }, [leadsData]);
+
+  // When a parent owns the data (Redux), delegate deletes to it so they persist;
+  // otherwise fall back to a local-only removal (e.g. static mock lists).
+  const handleDelete = (id) => {
+    if (onDelete) onDelete(id);
+    else setLeads(prev => prev.filter(Boolean).filter(l => l.id !== id));
+  };
   const closeModal = () => setSelectedLead(null);
 
-  const counts = {
-    All: leads.filter(Boolean).length,
-    New: leads.filter(l => l?.status === "New").length,
-    Discussion: leads.filter(l => l?.status === "Discussion").length,
-    "In Progress": leads.filter(l => l?.status === "In Progress").length,
-    Converted: leads.filter(l => l?.status === "Converted").length,
-    Failed: leads.filter(l => l?.status === "Failed").length,
-  };
+  const present = leads.filter(Boolean);
+  const counts = present.reduce(
+    (acc, l) => {
+      if (l?.status) acc[l.status] = (acc[l.status] || 0) + 1;
+      return acc;
+    },
+    { All: present.length }
+  );
+
+  const tabList = ["All", ...STATUS_ORDER.filter((status) => counts[status])];
 
   const filtered = leads
     .filter(Boolean)
@@ -35,8 +52,6 @@ export default function Leadcategory({ leadsData = defaultLeadsData }) {
         l?.assignee?.toLowerCase().includes(q)
       );
     });
-
-  const tabList = ["All", "New", "Discussion", "In Progress", "Converted", "Failed"];
 
   return (
     <div className="font-sans">
@@ -65,22 +80,20 @@ export default function Leadcategory({ leadsData = defaultLeadsData }) {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 border ${
-              activeTab === tab
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 border ${activeTab === tab
                 ? "bg-green-500 text-white border-green-500 shadow-sm"
                 : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-            }`}
+              }`}
           >
             {tab}
-            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-              activeTab === tab ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"
-            }`}>
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"
+              }`}>
               {counts[tab] ?? 0}
             </span>
           </button>
         ))}
       </div>
- 
+
       {/* Cards Grid */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-slate-400">

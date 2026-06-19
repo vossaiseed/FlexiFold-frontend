@@ -1,14 +1,12 @@
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  deleteLeadManager,
+  selectLeadManagers,
+  selectLeadManagersLoading,
+  selectLeadManagersError,
+} from "../../../redux/features/leadManagers/leadManagersSlice";
 
-export default function LeadMangerCard({ onEdit }) {
- const managers = [
-  { id: 1, name: "Lead Manager", phone: "0000000000", location: "mlp" },
-  { id: 2, name: "Arjun Nair", phone: "9876543210", location: "Calicut" },
-  { id: 3, name: "Sneha Pillai", phone: "8765432109", location: "Kochi" },
-  { id: 4, name: "Rahul Dev", phone: "9988776655", location: "Bangalore" },
-  { id: 5, name: "Priya Sharma", phone: "9123456780", location: "Mumbai" },
-  { id: 6, name: "Benazir Ameen", phone: "8848340828", location: "Perinthalmanna" },
-];
 const avatarColors = [
   { bg: "bg-teal-100",   text: "text-teal-700" },
   { bg: "bg-indigo-100", text: "text-indigo-700" },
@@ -17,22 +15,55 @@ const avatarColors = [
   { bg: "bg-blue-100",   text: "text-blue-700" },
   { bg: "bg-violet-100", text: "text-violet-700" },
 ];
-const getColor=(id)=>{
-  const color = avatarColors[id % avatarColors.length];
-  return color;
-}
- const navigate = useNavigate();
- const openDetails = () => {
-   try { sessionStorage.setItem("lmFromAdmin", "1"); } catch { /* ignore */ }
-   navigate(`/lead-manager/dashboard`);
- };
- 
+// Pick a stable colour from the manager's name (ids are now uuids, not numbers).
+const getColor = (key = "") => {
+  const sum = String(key).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return avatarColors[sum % avatarColors.length];
+};
+
+export default function LeadMangerCard({ onEdit }) {
+  const dispatch = useDispatch();
+  const managers = useSelector(selectLeadManagers);
+  const loading = useSelector(selectLeadManagersLoading);
+  const error = useSelector(selectLeadManagersError);
+
+  const navigate = useNavigate();
+  const openDetails = () => {
+    try { sessionStorage.setItem("lmFromAdmin", "1"); } catch { /* ignore */ }
+    navigate(`/lead-manager/dashboard`);
+  };
+
+  const handleDelete = (manager) => {
+    if (window.confirm(`Delete lead manager "${manager.name}"? This cannot be undone.`)) {
+      dispatch(deleteLeadManager(manager.id));
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {error}
+      </div>
+    );
+  }
+
+  if (loading && managers.length === 0) {
+    return <p className="py-12 text-center text-sm text-slate-500">Loading lead managers…</p>;
+  }
+
+  if (!loading && managers.length === 0) {
+    return (
+      <p className="py-12 text-center text-sm text-slate-500">
+        No lead managers yet. Click “Add Manager” to create one.
+      </p>
+    );
+  }
 
   return (
     <>
    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
     {managers?.map((manager) => {
-      const color =getColor(manager.id);
+      const color = getColor(manager.name || manager.id);
       return (
         
 
@@ -41,7 +72,7 @@ const getColor=(id)=>{
         {/* Top — avatar + name */}
         <div className="flex items-center gap-2.5">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-semibold shrink-0 ${color.bg} ${color.text}`}>
-          {manager.name[0].toUpperCase()}
+          {manager.name?.[0]?.toUpperCase() || "?"}
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">{manager.name}</p>
@@ -74,7 +105,7 @@ const getColor=(id)=>{
           </svg>
           <span className="text-xs font-medium text-slate-500">Edit</span>
         </button>
- 
+
         <button onClick={openDetails}
           className="flex flex-col items-center gap-1 py-2 rounded-xl border border-slate-100 hover:border-violet-200 hover:bg-violet-50 transition-colors"
         >
@@ -84,15 +115,15 @@ const getColor=(id)=>{
           </svg>
           <span className="text-xs font-medium text-slate-500">View</span>
         </button>
- 
+
         <button
-         
-          className="flex flex-col items-center gap-1 py-2 rounded-xl border border-slate-100 hover:border-amber-200 hover:bg-amber-50 transition-colors"
+          onClick={() => handleDelete(manager)}
+          className="flex flex-col items-center gap-1 py-2 rounded-xl border border-slate-100 hover:border-red-200 hover:bg-red-50 transition-colors"
         >
-          <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
-          <span className="text-xs font-medium text-slate-500">Reset</span>
+          <span className="text-xs font-medium text-slate-500">Delete</span>
         </button>
       </div>
     </div>

@@ -1,40 +1,51 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { Search, MapPin, Clock, Phone, UserPlus, Inbox } from "lucide-react";
-
-const poolLeads = [
-  { id: 1, name: "Rahul Menon", phone: "9846012345", location: "Kochi", requirement: "Looking for a 3 BHK modular kitchen and wardrobe package.", posted: "2h ago" },
-  { id: 2, name: "Sneha Pillai", phone: "9846098765", location: "Trivandrum", requirement: "Office interior renovation, ~1800 sq ft.", posted: "5h ago" },
-  { id: 3, name: "Imran Ali", phone: "9846055555", location: "Calicut", requirement: "Foldable furniture for a compact studio apartment.", posted: "8h ago" },
-  { id: 4, name: "Devika Raj", phone: "9846077777", location: "Thrissur", requirement: "Full villa interior consultation needed.", posted: "1d ago" },
-  { id: 5, name: "Anwar Sadath", phone: "9846088888", location: "Malappuram", requirement: "Premium living room makeover with custom shelving.", posted: "1d ago" },
-  { id: 6, name: "Priya Thomas", phone: "9846099999", location: "Kottayam", requirement: "Budget furniture for a rental flat, flexible timeline.", posted: "2d ago" },
-];
+import { updateLead } from "../../redux/features/leads/leadsSlice";
+import { formatLeadTime } from "../../utils/leadHelpers";
 
 const initial = (name) => name?.trim()?.[0]?.toUpperCase() || "?";
 
+// A lead is "in the pool" if it's unassigned and still open (not closed/rejected).
+const CLOSED = ["Converted", "Failed", "Rejected"];
+
 export default function LeadPool() {
+  const dispatch = useDispatch();
+  const allLeads = useSelector((s) => s.leads.leads);
+  const isLoading = useSelector((s) => s.leads.isLoading);
+  const { user } = useSelector((s) => s.auth);
+
   const [query, setQuery] = useState("");
-  const [leads, setLeads] = useState(poolLeads);
+  const [claimingId, setClaimingId] = useState(null);
 
-  const claim = (id) => setLeads((prev) => prev.filter((l) => l.id !== id));
+  const poolLeads = useMemo(
+    () => (allLeads || []).filter((l) => !l?.assigned_to && !CLOSED.includes(l?.status)),
+    [allLeads]
+  );
 
-  const filtered = leads.filter((l) => {
+  const filtered = poolLeads.filter((l) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return (
-      l.name.toLowerCase().includes(q) ||
-      l.location.toLowerCase().includes(q) ||
-      l.requirement.toLowerCase().includes(q) ||
-      l.phone.toLowerCase().includes(q)
-    );
+    const haystack = `${l.name || ""} ${l.location || ""} ${l.requirement || ""} ${l.phone || ""}`.toLowerCase();
+    return haystack.includes(q);
   });
+
+  // Claim = assign the lead to the current user, which removes it from the pool.
+  const claim = async (lead) => {
+    if (!user?.id) return;
+    setClaimingId(lead.id);
+    try {
+      await dispatch(updateLead({ leadId: lead.id, changes: { assigned_to: user.id } })).unwrap();
+    } catch { /* error surfaced via leads slice */ }
+    finally { setClaimingId(null); }
+  };
 
   return (
     <div className="font-sans mt-3">
       {/* Header row */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">
-          <span className="font-bold text-slate-900">{leads.length}</span> leads available to claim
+          <span className="font-bold text-slate-900">{poolLeads.length}</span> leads available to claim
         </p>
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -48,7 +59,9 @@ export default function LeadPool() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {isLoading && poolLeads.length === 0 ? (
+        <p className="py-16 text-center text-sm text-slate-500">Loading lead pool…</p>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-20 text-center shadow-sm">
           <Inbox className="h-8 w-8 text-slate-300" />
           <p className="font-semibold text-slate-500">No leads in the pool</p>
@@ -72,21 +85,26 @@ export default function LeadPool() {
               </div>
 
               {/* Meta */}
-              <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                <MapPin className="h-3.5 w-3.5 text-slate-400" /> {lead.location}
-              </p>
-              <p className="line-clamp-2 text-xs leading-relaxed text-slate-600">{lead.requirement}</p>
+              {lead.location && (
+                <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <MapPin className="h-3.5 w-3.5 text-slate-400" /> {lead.location}
+                </p>
+              )}
+              {lead.requirement && (
+                <p className="line-clamp-2 text-xs leading-relaxed text-slate-600">{lead.requirement}</p>
+              )}
 
               {/* Footer */}
               <div className="mt-1 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
                 <span className="flex items-center gap-1 text-[11px] text-slate-400">
-                  <Clock className="h-3.5 w-3.5" /> {lead.posted}
+                  <Clock className="h-3.5 w-3.5" /> {formatLeadTime(lead.created_at)}
                 </span>
                 <button
-                  onClick={() => claim(lead.id)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600"
+                  onClick={() => claim(lead)}
+                  disabled={claimingId === lead.id}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <UserPlus className="h-3.5 w-3.5" /> Claim
+                  <UserPlus className="h-3.5 w-3.5" /> {claimingId === lead.id ? "Claiming…" : "Claim"}
                 </button>
               </div>
             </div>

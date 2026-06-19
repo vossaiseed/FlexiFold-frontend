@@ -1,27 +1,30 @@
 import React from 'react'
+import { useSelector } from 'react-redux'
+import { selectConversions } from '../../../redux/features/conversions/conversionsSlice'
+import { PENDING_STATUSES } from '../../../utils/leadHelpers'
 
-export default function OverviewCard() {
-    const card = {
-  background: "#fff",
-  borderRadius: 16,
-  border: "1px solid #f1f5f9",
-  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-  padding: "20px 20px",
-};
-
-const statCards = [
-  { label: "Total Users", value: "1,234", color: "#3b82f6" },
-  { label: "Active Subscriptions", value: "567", color: "#10b981" },
-  { label: "Monthly Revenue", value: "$12.3K", color: "#f59e0b" },
-  { label: "Churn Rate", value: "2.5%", color: "#ef4444" },
-];const cardStyle = {
+const cardStyle = {
   background: "#fff",
   borderRadius: 16,
   border: "1px solid #f1f5f9",
   boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
   padding: "20px",
 };
- 
+
+export default function StatsCard() {
+  const leads = useSelector((s) => s.leads.leads);
+  const conversions = useSelector(selectConversions);
+
+  const converted = (leads || []).filter((l) => l?.status === "Converted").length;
+  const pendingReview = (leads || []).filter((l) => PENDING_STATUSES.includes(l?.status)).length;
+
+  const statCards = [
+    { label: "Total Leads", value: (leads || []).length, color: "#1f2937" },
+    { label: "Converted", value: converted, color: "#10b981" },
+    { label: "Pending Review", value: pendingReview, color: "#ea580c" },
+    { label: "Conv. Requests", value: (conversions || []).length, color: "#8b5cf6" },
+  ];
+
   return (
     <>
       {statCards.map((s) => (

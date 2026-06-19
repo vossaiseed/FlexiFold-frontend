@@ -1,57 +1,41 @@
 import React from "react";
+import { useSelector } from "react-redux";
+import { selectConversions } from "../../../redux/features/conversions/conversionsSlice";
 
-const stats = [
-  {
-    title: "Total Conversion Requests",
-    value: "84",
-    description: "Requests received this month",
-    change: "+12%",
-    trend: "up",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 17l4-4 4 4 4-8 4 4" />
-      </svg>
-    ),
-  },
-  {
-    title: "Pending Requests",
-    value: "28",
-    description: "Awaiting manager review",
-    change: "+4%",
-    trend: "up",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
-  {
-    title: "Approved Requests",
-    value: "42",
-    description: "Completed conversions",
-    change: "+18%",
-    trend: "up",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-      </svg>
-    ),
-  },
-  {
-    title: "Rejected Requests",
-    value: "14",
-    description: "Declined approvals",
-    change: "-6%",
-    trend: "down",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
-      </svg>
-    ),
-  },
-];
+const ICONS = {
+  total: (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17l4-4 4 4 4-8 4 4" />
+    </svg>
+  ),
+  pending: (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  approved: (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  ),
+  rejected: (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  ),
+};
 
 export default function ConversionStats() {
+  const conversions = useSelector(selectConversions);
+
+  const count = (s) => conversions.filter((c) => c.status === s).length;
+  const stats = [
+    { title: "Total Conversion Requests", value: conversions.length, description: "All requests", icon: ICONS.total },
+    { title: "Pending Requests", value: count("Pending"), description: "Awaiting review", icon: ICONS.pending },
+    { title: "Approved Requests", value: count("Approved"), description: "Completed conversions", icon: ICONS.approved },
+    { title: "Rejected Requests", value: count("Rejected"), description: "Declined approvals", icon: ICONS.rejected },
+  ];
+
   return (
     <section className="space-y-6">
       {/* <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -83,13 +67,6 @@ export default function ConversionStats() {
             </div>
             <div className="mt-6 flex items-center justify-between gap-3">
               <p className="text-sm text-slate-500">{item.description}</p>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-                  item.trend === "up" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                }`}
-              >
-                {item.trend === "up" ? "▲" : "▼"} {item.change}
-              </span>
             </div>
           </div>
         ))}

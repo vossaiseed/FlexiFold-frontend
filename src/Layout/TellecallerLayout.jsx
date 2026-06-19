@@ -1,8 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { Menu } from "lucide-react";
 import TellecallerSidebar from "../components/common/Sidebars/TellecallerSidebar";
 import UserMenu from "../components/common/UserMenu";
+import { fetchLeads } from "../redux/features/leads/leadsSlice";
+import { fetchConversions } from "../redux/features/conversions/conversionsSlice";
+import { fetchSalesTeam } from "../redux/features/salesTeam/salesTeamSlice";
+import useRefetchOnFocus from "../utils/useRefetchOnFocus";
 
 const sectionTitles = {
   dashboard: "Dashboard",
@@ -18,6 +23,16 @@ export default function TellecallerLayout() {
   const segment = pathname.split("/").filter(Boolean).pop();
   const title = sectionTitles[segment] || "Dashboard";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const dispatch = useDispatch();
+
+  const refresh = () => {
+    dispatch(fetchLeads());
+    dispatch(fetchConversions());
+    dispatch(fetchSalesTeam()); // needed to map this telecaller to their salesstaff id
+  };
+  useEffect(() => { refresh(); }, [dispatch]);
+  // Refresh on tab focus so admin approvals / new assignments show up.
+  useRefetchOnFocus(refresh);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 font-sans lg:flex-row">
@@ -35,7 +50,7 @@ export default function TellecallerLayout() {
             </button>
             <h1 className="text-base font-bold text-slate-900">{title}</h1>
           </div>
-          <UserMenu name="Anjana Krishnan" role="Telecaller" email="anjana.k@flexifold.com" initial="A" />
+          <UserMenu />
         </header>
 
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6">

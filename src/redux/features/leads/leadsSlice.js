@@ -4,6 +4,9 @@ import api, { getApiError } from "../../services/api";
 // All lead endpoints live under /leads
 const LEADS_URL = "/leads";
 
+// Supabase rows use `id`; tolerate a legacy `_id` just in case.
+const getLeadId = (lead) => lead?.id ?? lead?._id;
+
 /* ============================================================
  * Async thunks — each one talks to the API for a single action.
  * The shared `api` client adds the auth token automatically.
@@ -112,17 +115,20 @@ const leadsSlice = createSlice({
       })
       .addCase(updateLead.fulfilled, (state, action) => {
         const updated = action.payload;
+        const updatedId = getLeadId(updated);
+        // Merge (not replace) so derived fields the API may omit on a partial
+        // update (e.g. partner_name/assigned_name) are preserved.
         state.leads = state.leads.map((lead) =>
-          lead._id === updated._id ? updated : lead
+          getLeadId(lead) === updatedId ? { ...lead, ...updated } : lead
         );
-        if (state.selectedLead?._id === updated._id) {
-          state.selectedLead = updated;
+        if (getLeadId(state.selectedLead) === updatedId) {
+          state.selectedLead = { ...state.selectedLead, ...updated };
         }
       })
       .addCase(deleteLead.fulfilled, (state, action) => {
         const deletedId = action.payload;
-        state.leads = state.leads.filter((lead) => lead._id !== deletedId);
-        if (state.selectedLead?._id === deletedId) {
+        state.leads = state.leads.filter((lead) => getLeadId(lead) !== deletedId);
+        if (getLeadId(state.selectedLead) === deletedId) {
           state.selectedLead = null;
         }
       })

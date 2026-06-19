@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import PartnerSidebar from "../components/common/Sidebars/PartnerSidebar";
 import TopNavbar from "../components/common/PartnerNavbar";
 import { fetchLeads } from "../redux/features/leads/leadsSlice";
+import useRefetchOnFocus from "../utils/useRefetchOnFocus";
 
 const sectionTitles = {
   dashboard: "Dashboard",
@@ -27,6 +28,8 @@ export default function PartnerLayout() {
   useEffect(() => {
     dispatch(fetchLeads());
   }, [dispatch]);
+  // Refresh on tab focus so admin/lead-manager changes appear for the partner.
+  useRefetchOnFocus(() => dispatch(fetchLeads()));
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 font-sans lg:flex-row">

@@ -11,12 +11,12 @@ import ConversionRequestsSection from '../pages/admin/ConversionRequestsSection'
 import PartnerDashboard from '../pages/admin/PartnerSection'
 import PartnerDetails from '../components/admin/Partner/PartnerDetails'
 import LeadMangerSection from '../pages/admin/LeadMangerSection'
-import AddLeadForm from '../components/leads/AddLeadForm'
 import SaleTeam from '../pages/admin/SaleTeam'
 import GeneralLeads from '../pages/admin/GeneralLeads'
 import Trash from '../pages/admin/Trash'
 import Settings from '../pages/admin/Settings'
 import LeadPool from '../pages/admin/LeadPool'
+import History from '../pages/admin/History'
 import PartnerLayout from '../Layout/PartnerLayout'
 import DashboardSection from '../components/partner/sections/DashboardSection'
 import LeadsSection from '../components/partner/sections/LeadsSection'
@@ -36,8 +36,8 @@ import LMSection from '../pages/LeadMangerDashborad/LMSection'
 import LeadManagerDashboard from '../pages/LeadMangerDashborad/LMDashboard'
 import LMSalesTeam from '../pages/LeadMangerDashborad/LMSalesTeam'
 import LMAlerts from '../pages/LeadMangerDashborad/LMAlerts'
+import LMLeads from '../pages/LeadMangerDashborad/LMLeads'
 import LMDashLayout from '../Layout/LMDashLayout'
-import Leadcategory from '../components/admin/AssignedLeads/Leadcategory'
 import ProtectedRoute from './ProtectedRoute'
 
 
@@ -62,12 +62,11 @@ export default function AppRoutes() {
                   <Route path="general-leads" element={<GeneralLeads />} />
                   <Route path="trash" element={<Trash />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="history" element={<History />} />
                   <Route path="lead-pool" element={<LeadPool />} />
                 </Route>
                 {/* Standalone Partner Details page — outside AdminLayout so it opens as its own full page (no dashboard chrome) */}
                 <Route path="/admin/partners/:id" element={<PartnerDetails />} />
-                {/* Standalone Add Lead form page */}
-                <Route path="/admin/leads/add" element={<AddLeadForm />} />
               </Route>
 
               {/* Partner dashboard — partners only; own layout/sidebar */}
@@ -97,16 +96,19 @@ export default function AppRoutes() {
                 </Route>
               </Route>
 
-              {/* Lead Manager area — lead managers only; own sidebar/chrome */}
-              <Route element={<ProtectedRoute allowedRoles={["lead-manager"]} />}>
+              {/* Lead Manager area — lead managers, plus admins viewing from the Lead Managers section */}
+              <Route element={<ProtectedRoute allowedRoles={["lead-manager", "admin"]} />}>
                 <Route path="/lead-manager" element={<LMDashLayout />} >
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<LeadManagerDashboard />} />
-                  <Route path="leads" element={<Leadcategory />} />
+                  <Route path="leads" element={<LMLeads />} />
                   <Route path="sales-team" element={<LMSalesTeam />} />
                   <Route path="alerts" element={<LMAlerts />} />
                 </Route>
               </Route>
+
+              {/* Fallback: unknown paths/roles go home instead of a blank screen */}
+              <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     </div>
   )

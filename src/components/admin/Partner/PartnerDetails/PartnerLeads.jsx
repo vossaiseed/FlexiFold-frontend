@@ -2,16 +2,6 @@ import React, { useState } from "react";
 import { Search, Plus, MapPin, Clock, Eye } from "lucide-react";
 import AddLead from "./AddLead";
 
-// Section 3 — Leads search, status filters and lead cards
-const leadsData = [
-  { id: 101, name: "Toji Joseph & Brothers", location: "Munnar, Kerala", requirement: "Looking for a 4 BHK villa interior package with modular kitchen.", status: "Converted", createdAt: "09 May 2026 · 10:07 am" },
-  { id: 102, name: "Sidharth Roy", location: "Hosur, Tamil Nadu", requirement: "Office space renovation, needs a quote for 2400 sq ft.", status: "Discussion", createdAt: "07 May 2026 · 06:19 pm" },
-  { id: 103, name: "Arun Public RV", location: "Srirangapatna, Karnataka", requirement: "Enquiry about foldable furniture for a compact apartment.", status: "New", createdAt: "25 Apr 2026 · 09:20 am" },
-  { id: 104, name: "Hashir Ali", location: "Calicut, Kerala", requirement: "Wants a full home automation consultation.", status: "Not Interested", createdAt: "13 Apr 2026 · 05:45 am" },
-  { id: 105, name: "Tony Joseph", location: "Alappuzha, Kerala", requirement: "Budget furniture for a rental flat, flexible timeline.", status: "New", createdAt: "13 Apr 2026 · 05:44 am" },
-  { id: 106, name: "Saheer Galaxy", location: "Kakkadampoil, Kerala", requirement: "Premium living room makeover with custom shelving.", status: "Discussion", createdAt: "12 Apr 2026 · 04:14 pm" },
-];
-
 const statusConfig = {
   New: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-l-emerald-400" },
   Discussion: { bg: "bg-blue-50", text: "text-blue-700", border: "border-l-blue-400" },
@@ -21,17 +11,28 @@ const statusConfig = {
 
 const filters = ["All", "New", "Discussion", "Converted", "Not Interested"];
 
-export default function PartnerLeads() {
+// Format the DB timestamp (created_at) for display.
+const formatDate = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+};
+
+// Section 3 — Leads search, status filters and lead cards
+export default function PartnerLeads({ leads = [] }) {
   const [activeFilter, setActiveFilter] = useState("All");
   const [query, setQuery] = useState("");
   const [showAddLead, setShowAddLead] = useState(false);
 
-  const filtered = leadsData.filter((lead) => {
+  const filtered = leads.filter((lead) => {
     const matchesFilter = activeFilter === "All" || lead.status === activeFilter;
-    const matchesQuery =
-      lead.name.toLowerCase().includes(query.toLowerCase()) ||
-      lead.location.toLowerCase().includes(query.toLowerCase()) ||
-      lead.requirement.toLowerCase().includes(query.toLowerCase());
+    // DB leads can have null location/requirement, so guard before lowercasing.
+    const haystack = `${lead.name || ""} ${lead.location || ""} ${lead.requirement || ""}`.toLowerCase();
+    const matchesQuery = haystack.includes(query.toLowerCase());
     return matchesFilter && matchesQuery;
   });
 
@@ -105,7 +106,7 @@ export default function PartnerLeads() {
 
                 <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
                   <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                    <Clock className="h-3.5 w-3.5" /> {lead.createdAt}
+                    <Clock className="h-3.5 w-3.5" /> {formatDate(lead.created_at || lead.createdAt)}
                   </span>
                   <button
                     type="button"

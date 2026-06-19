@@ -1,5 +1,7 @@
 import React, { useRef, useState } from "react";
 import { X, Camera, Trash2 } from "lucide-react";
+import { useDispatch } from "react-redux";
+import { createLeadManager, updateLeadManager } from "../../../redux/features/leadManagers/leadManagersSlice";
 
 const inputClass =
   "mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100";
@@ -7,6 +9,7 @@ const labelClass = "text-xs font-semibold uppercase tracking-[0.2em] text-slate-
 
 export default function AddLeadManager({  manager, onClose }) {
   const isEdit = Boolean(manager);
+  const dispatch = useDispatch();
   const [form, setForm] = useState({
     name: manager?.name || "",
     phone: manager?.phone || "",
@@ -15,6 +18,8 @@ export default function AddLeadManager({  manager, onClose }) {
     password: "",
   });
   const [photo, setPhoto] = useState(manager?.photo || "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const fileRef = useRef(null);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -24,10 +29,40 @@ export default function AddLeadManager({  manager, onClose }) {
     if (file) setPhoto(URL.createObjectURL(file));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log({ ...form, photo });
-    onClose();
+    setError("");
+    if (!form.name.trim() || !form.phone.trim()) {
+      setError("Full name and phone are required.");
+      return;
+    }
+    if (!isEdit && !form.password) {
+      setError("Password is required.");
+      return;
+    }
+
+    const payload = {
+      name: form.name,
+      phone: form.phone,
+      email: form.email || null,
+      location: form.location,
+    };
+    // Only send a password when set — on edit, blank means "keep current".
+    if (form.password) payload.password = form.password;
+
+    setSubmitting(true);
+    try {
+      if (isEdit) {
+        await dispatch(updateLeadManager({ managerId: manager.id, changes: payload })).unwrap();
+      } else {
+        await dispatch(createLeadManager(payload)).unwrap();
+      }
+      onClose();
+    } catch (err) {
+      setError(typeof err === "string" ? err : "Failed to save lead manager. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -156,20 +191,29 @@ export default function AddLeadManager({  manager, onClose }) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded-full bg-teal-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-200 transition hover:bg-teal-600"
-            >
-              {isEdit ? "Update Manager" : "Add Manager"}
-            </button>
+          <div className="border-t border-slate-100 px-6 py-4">
+            {error && (
+              <p className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+                {error}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-full bg-teal-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-200 transition hover:bg-teal-600 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Saving…" : isEdit ? "Update Manager" : "Add Manager"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

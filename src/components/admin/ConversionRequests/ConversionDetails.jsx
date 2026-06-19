@@ -1,18 +1,20 @@
 import React from "react";
+import { formatLeadDate } from "../../../utils/leadHelpers";
 
 export default function ConversionDetails({ conversion, onBack, onApprove, onReject }) {
-  const data = conversion || {
-    leadName: "Toji Joseph & Brothers",
-    customerName: "Mr. Joseph",
-    salesStaff: "Priya Menon",
-    amount: "$18,400",
-    date: "Jun 4, 2026",
-    status: "Pending",
-    notes: "Customer has confirmed product specs and is awaiting final finance approval.",
-    leadEmail: "toji.joseph@example.com",
-    customerPhone: "+91 99723 72573",
-    staffEmail: "priya.menon@example.com",
-    staffPhone: "+91 99876 54321",
+  const c = conversion || {};
+  const data = {
+    leadName: c.lead_name || "—",
+    customerName: c.customer_name || c.lead_name || "—",
+    salesStaff: c.sales_staff_name || "Unassigned",
+    amount: c.amount === null || c.amount === undefined || c.amount === "" ? "—" : `₹${c.amount}`,
+    date: formatLeadDate(c.created_at),
+    status: c.status || "Pending",
+    notes: c.notes || "No notes.",
+    leadEmail: c.lead_email || "—",
+    customerPhone: c.lead_phone || "—",
+    staffEmail: c.sales_staff_email || "—",
+    staffPhone: c.sales_staff_phone || "—",
   };
 
   return (

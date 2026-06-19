@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { LayoutDashboard, Users, DollarSign, CreditCard, Bell, Trash2, User, ChevronUp, LogOut, X } from "lucide-react";
+import { logout as logoutAction } from "../../../redux/features/auth/authSlice";
+import api from "../../../redux/services/api";
 
 export const partnerNav = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/partner/dashboard" },
@@ -12,15 +15,24 @@ export const partnerNav = [
   { label: "Profile", icon: User, to: "/partner/profile" },
 ];
 
-const currentUser = { name: "Fayiz Alikkal", role: "Partner", initial: "F" };
-
 function SidebarBody({ onNavClick }) {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const handleLogout = () => {
+  const { user } = useSelector((s) => s.auth);
+  const meta = user?.user_metadata || {};
+  const currentUser = {
+    name: meta.name || "Partner",
+    role: "Partner",
+    initial: (meta.name?.[0] || "P").toUpperCase(),
+  };
+
+  const handleLogout = async () => {
     setMenuOpen(false);
     onNavClick?.();
+    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    dispatch(logoutAction());
     navigate("/login");
   };
 

@@ -17,18 +17,23 @@ export const leadsData = [
 ];
  
 const statusConfig = {
-  Discussion: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500", border: "border-l-blue-500" },
   New: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", border: "border-l-emerald-400" },
+  Pending: { bg: "bg-slate-100", text: "text-slate-700", dot: "bg-slate-500", border: "border-l-slate-400" },
+  Discussion: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500", border: "border-l-blue-500" },
+  "Follow-up": { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500", border: "border-l-amber-400" },
   "In Progress": { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500", border: "border-l-amber-400" },
   Converted: { bg: "bg-purple-50", text: "text-purple-700", dot: "bg-purple-500", border: "border-l-purple-400" },
   Failed: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-400", border: "border-l-red-400" },
+  Rejected: { bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-400", border: "border-l-rose-400" },
 };
+
+const fallbackStatusConfig = { bg: "bg-slate-100", text: "text-slate-700", dot: "bg-slate-400", border: "border-l-slate-300" };
  
  
 export default function LeadCard({ lead, onDelete, onClick }) {
   if (!lead) return null;
   const status = lead.status ?? "New";
-  const cfg = statusConfig[status] || statusConfig["New"];
+  const cfg = statusConfig[status] || fallbackStatusConfig;
  
   return (
     <div

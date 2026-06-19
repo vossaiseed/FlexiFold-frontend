@@ -30,7 +30,7 @@ export default function Navbar() {
             <HiOutlineMenu className="h-6 w-6" />
           </button>
           <div className="hidden md:flex flex-wrap gap-2 items-center">
-            <button className="border border-white/30 hover:border-white hover:bg-white/10 text-white rounded-full px-5 py-2    transition-all bg-transparent cursor-pointer">
+            <button onClick={() => navigate('/login')} className="border border-white/30 hover:border-white hover:bg-white/10 text-white rounded-full px-5 py-2    transition-all bg-transparent cursor-pointer">
               Sign In
             </button>
             <button onClick={() => navigate('/register')} className="bg-green-500 hover:bg-green-600 text-white rounded-full px-5 py-2 sm:px-6 sm:py-2   font-semibold transition-all cursor-pointer hover:-translate-y-px">

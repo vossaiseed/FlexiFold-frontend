@@ -1,12 +1,39 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { ArrowLeft } from "lucide-react";
 import PartnerProfile from "./PartnerDetails/PartnerProfile";
 import PartnerOverview from "./PartnerDetails/PartnerOverview";
 import PartnerLeads from "./PartnerDetails/PartnerLeads";
+import {
+  fetchPartnerById,
+  fetchPartnerLeads,
+  clearSelectedPartner,
+  selectSelectedPartner,
+  selectPartnerLeads,
+  selectPartnersLoading,
+  selectPartnersError,
+} from "../../../redux/features/partners/partnersSlice";
 
 export default function PartnerDetails() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const dispatch = useDispatch();
+
+  const partner = useSelector(selectSelectedPartner);
+  const leads = useSelector(selectPartnerLeads);
+  const isLoading = useSelector(selectPartnersLoading);
+  const error = useSelector(selectPartnersError);
+
+  // Load this partner + their leads; clear on unmount so the next partner
+  // doesn't briefly show stale data.
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchPartnerById(id));
+      dispatch(fetchPartnerLeads(id));
+    }
+    return () => dispatch(clearSelectedPartner());
+  }, [dispatch, id]);
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-8">
@@ -20,14 +47,28 @@ export default function PartnerDetails() {
           <ArrowLeft className="h-4 w-4" /> Back to Partners
         </button>
 
-        {/* Section 1 — Profile + Stats */}
-        <PartnerProfile />
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-        {/* Section 2 — Quick Voice Action + Recent Updates */}
-        <PartnerOverview />
+        {isLoading && !partner ? (
+          <p className="py-12 text-center text-sm text-slate-500">Loading partner…</p>
+        ) : !partner ? (
+          <p className="py-12 text-center text-sm text-slate-500">Partner not found.</p>
+        ) : (
+          <>
+            {/* Section 1 — Profile + Stats */}
+            <PartnerProfile partner={partner} leads={leads} />
 
-        {/* Section 3 — Leads search, filters & list */}
-        <PartnerLeads />
+            {/* Section 2 — Quick Voice Action + Recent Updates */}
+            <PartnerOverview leads={leads} />
+
+            {/* Section 3 — Leads search, filters & list */}
+            <PartnerLeads leads={leads} partnerId={id} />
+          </>
+        )}
       </div>
     </main>
   );

@@ -1,5 +1,7 @@
 import React, { useRef, useState } from "react";
+import { useDispatch } from "react-redux";
 import { X, Camera, Trash2, Eye, EyeOff, ShieldCheck, Plus } from "lucide-react";
+import { createSalesStaff, updateSalesStaff } from "../../../redux/features/salesTeam/salesTeamSlice";
 
 const inputClass =
   "mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100";
@@ -11,23 +13,29 @@ const ROLE_OPTIONS = ["Official Sales Person", "Telecaller"];
 
 export default function AddSalesStaff({ staff, onClose }) {
   const isEdit = Boolean(staff);
+  const dispatch = useDispatch();
   const [form, setForm] = useState({
     name: staff?.name || "",
     phone: staff?.phone || "",
     email: staff?.email || "",
-    location: staff?.location || "",
+    location: staff?.city || "",
     state: staff?.state || "",
     password: "",
-    closingCapacity: staff?.closingCapacity || "Other",
-    maxLeadCapacity: staff?.maxLeadCapacity ?? 10,
-    fullAccess: staff?.fullAccess ?? true,
+    closingCapacity: staff?.closing_capacity || "Other",
+    maxLeadCapacity: staff?.max_lead_capacity ?? 10,
+    fullAccess: staff?.full_access ?? true,
     role: staff?.role || "Official Sales Person",
   });
-  const [languages, setLanguages] = useState(staff?.languages || []);
+  // The table stores a single primary language + proficiency; seed from that.
+  const [languages, setLanguages] = useState(
+    staff?.language ? [{ name: staff.language, level: staff.proficiency || 0 }] : []
+  );
   const [langName, setLangName] = useState("");
   const [langLevel, setLangLevel] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [photo, setPhoto] = useState(staff?.photo || "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const fileRef = useRef(null);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -48,10 +56,46 @@ export default function AddSalesStaff({ staff, onClose }) {
   const removeLanguage = (index) =>
     setLanguages(languages.filter((_, i) => i !== index));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log({ ...form, languages, photo });
-    onClose();
+    setError("");
+    if (!form.name.trim() || !form.phone.trim()) {
+      setError("Full name and phone are required.");
+      return;
+    }
+
+    // Map the form to the salesstaff table columns. The table holds a single
+    // primary language + proficiency, so we use the first one entered.
+    const primary = languages[0];
+    const payload = {
+      name: form.name,
+      phone: form.phone,
+      email: form.email || null,
+      city: form.location,
+      state: form.state,
+      closing_capacity: form.closingCapacity,
+      max_lead_capacity: Number(form.maxLeadCapacity) || 0,
+      language: primary?.name || null,
+      proficiency: primary?.level || null,
+      full_access: form.fullAccess,
+      role: form.role,
+    };
+    // Only send a password when set — on edit, blank means "keep current".
+    if (form.password) payload.password = form.password;
+
+    setSubmitting(true);
+    try {
+      if (isEdit && staff?.id) {
+        await dispatch(updateSalesStaff({ staffId: staff.id, changes: payload })).unwrap();
+      } else {
+        await dispatch(createSalesStaff(payload)).unwrap();
+      }
+      onClose();
+    } catch (err) {
+      setError(typeof err === "string" ? err : "Failed to save sales member. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -319,11 +363,17 @@ export default function AddSalesStaff({ staff, onClose }) {
 
           {/* Footer */}
           <div className="border-t border-slate-100 px-6 py-4">
+            {error && (
+              <p className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+                {error}
+              </p>
+            )}
             <button
               type="submit"
-              className="w-full rounded-2xl bg-linear-to-r from-amber-500 to-orange-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:from-amber-600 hover:to-orange-700"
+              disabled={submitting}
+              className="w-full rounded-2xl bg-linear-to-r from-amber-500 to-orange-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:from-amber-600 hover:to-orange-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isEdit ? "Update Account" : "Create Account"}
+              {submitting ? "Saving…" : isEdit ? "Update Account" : "Create Account"}
             </button>
           </div>
         </form>

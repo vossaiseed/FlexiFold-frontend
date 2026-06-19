@@ -1,21 +1,36 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { Wallet, Clock, IndianRupee, ArrowUpRight } from "lucide-react";
+import { fetchConversions, selectConversions } from "../../../redux/features/conversions/conversionsSlice";
 
-const summary = [
-  { label: "Available Balance", value: "₹24,000", icon: Wallet, color: "text-emerald-600", bg: "bg-emerald-50" },
-  { label: "Pending", value: "₹6,000", icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
-  { label: "Payout", value: "₹1,00,000", icon: IndianRupee, color: "text-violet-600", bg: "bg-violet-50" },
-];
-
-const history = [
-  { id: 1, date: "01 Jun 2026", amount: "₹20,000", method: "Bank Transfer", status: "Completed" },
-  { id: 2, date: "01 May 2026", amount: "₹15,000", method: "UPI", status: "Completed" },
-  { id: 3, date: "01 Apr 2026", amount: "₹10,000", method: "Bank Transfer", status: "Processing" },
-];
-
-const statusStyle = { Completed: "bg-emerald-50 text-emerald-600", Processing: "bg-amber-50 text-amber-600" };
+const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
 export default function WithdrawalsSection() {
+  const dispatch = useDispatch();
+  const leads = useSelector((s) => s.leads.leads);
+  const conversions = useSelector(selectConversions);
+
+  useEffect(() => {
+    dispatch(fetchConversions());
+  }, [dispatch]);
+
+  // Balance is derived from the partner's conversions (same source as Earnings).
+  const { available, pending } = useMemo(() => {
+    const myLeadIds = new Set((leads || []).map((l) => l.id));
+    const mine = (conversions || []).filter((c) => myLeadIds.has(c.lead_id));
+    const amt = (c) => Number(c.amount) || 0;
+    return {
+      available: mine.filter((c) => c.status === "Approved").reduce((s, c) => s + amt(c), 0),
+      pending: mine.filter((c) => c.status === "Pending").reduce((s, c) => s + amt(c), 0),
+    };
+  }, [leads, conversions]);
+
+  const summary = [
+    { label: "Available Balance", value: inr(available), icon: Wallet, color: "text-emerald-600", bg: "bg-emerald-50" },
+    { label: "Pending", value: inr(pending), icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
+    { label: "Total Payout", value: inr(0), icon: IndianRupee, color: "text-violet-600", bg: "bg-violet-50" },
+  ];
+
   return (
     <div className="space-y-5">
       {/* Summary cards */}
@@ -35,9 +50,12 @@ export default function WithdrawalsSection() {
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-800">Ready to withdraw?</p>
-          <p className="text-xs text-slate-400">Transfer your available balance to your account.</p>
+          <p className="text-xs text-slate-400">Online payouts aren’t enabled yet — contact admin to withdraw.</p>
         </div>
-        <button className="inline-flex items-center justify-center gap-1.5 rounded-full bg-emerald-500 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600">
+        <button
+          disabled
+          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-emerald-500 px-6 py-2.5 text-sm font-semibold text-white opacity-50 cursor-not-allowed"
+        >
           <ArrowUpRight className="h-4 w-4" /> Withdraw
         </button>
       </div>
@@ -45,17 +63,7 @@ export default function WithdrawalsSection() {
       {/* History */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-bold text-slate-800">Withdrawal History</h2>
-        <div className="divide-y divide-slate-100">
-          {history.map((w) => (
-            <div key={w.id} className="flex items-center justify-between gap-3 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">{w.amount}</p>
-                <p className="text-xs text-slate-400">{w.date} · {w.method}</p>
-              </div>
-              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusStyle[w.status]}`}>{w.status}</span>
-            </div>
-          ))}
-        </div>
+        <p className="py-8 text-center text-sm text-slate-400">No withdrawals yet.</p>
       </section>
     </div>
   );

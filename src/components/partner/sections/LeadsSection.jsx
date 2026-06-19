@@ -43,7 +43,9 @@ export default function LeadsSection() {
   const filtered = leads.filter((l) => {
     const matchFilter = activeFilter === "All" || l.status === activeFilter;
     const q = query.toLowerCase();
-    const matchQuery = l.name.toLowerCase().includes(q) || l.location.toLowerCase().includes(q) || l.requirement.toLowerCase().includes(q);
+    // DB leads can have null location/requirement, so guard before lowercasing.
+    const haystack = `${l.name || ""} ${l.location || ""} ${l.requirement || ""}`.toLowerCase();
+    const matchQuery = haystack.includes(q);
     return matchFilter && matchQuery;
   });
 

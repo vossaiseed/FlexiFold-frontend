@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { User, Bell, Lock, Camera } from "lucide-react";
+import api, { getApiError } from "../../redux/services/api";
+import { setCredentials } from "../../redux/features/auth/authSlice";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100";
@@ -24,17 +27,84 @@ const notifyItems = [
 ];
 
 export default function Settings() {
-  const [profile, setProfile] = useState({ name: "Admin", email: "admin@flexifold.com", phone: "9876543210", role: "Administrator" });
+  const dispatch = useDispatch();
+  const { user, token } = useSelector((s) => s.auth);
+
+  const [profile, setProfile] = useState({ name: "", email: "", phone: "", role: "" });
   const [notify, setNotify] = useState({ email: true, leadAlerts: true, weekly: false });
   const [security, setSecurity] = useState({ current: "", next: "", confirm: "" });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Load the current user's settings from the backend on mount.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get("/settings");
+        const s = data.data ?? data;
+        if (active) {
+          setProfile({ name: s.name || "", email: s.email || "", phone: s.phone || "", role: s.role || "" });
+          if (s.notify) setNotify((n) => ({ ...n, ...s.notify }));
+        }
+      } catch (err) {
+        // Fall back to the user already in Redux if the request fails.
+        if (active && user) {
+          const meta = user.user_metadata || {};
+          setProfile({ name: meta.name || "", email: user.email || "", phone: meta.phoneNumber || "", role: meta.role || "" });
+          if (meta.notify) setNotify((n) => ({ ...n, ...meta.notify }));
+        }
+        if (active) setError(getApiError(err));
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onProfile = (e) => setProfile({ ...profile, [e.target.name]: e.target.value });
   const onSecurity = (e) => setSecurity({ ...security, [e.target.name]: e.target.value });
   const toggle = (key) => setNotify((n) => ({ ...n, [key]: !n[key] }));
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    console.log({ profile, notify, security });
+    setError("");
+    setSuccess("");
+
+    // Validate the optional password change before sending anything.
+    if (security.next || security.confirm || security.current) {
+      if (!security.current) return setError("Enter your current password to change it.");
+      if (security.next.length < 6) return setError("New password must be at least 6 characters.");
+      if (security.next !== security.confirm) return setError("New password and confirmation do not match.");
+    }
+
+    const payload = {
+      name: profile.name,
+      phone: profile.phone,
+      notify,
+    };
+    if (security.next) {
+      payload.currentPassword = security.current;
+      payload.newPassword = security.next;
+    }
+
+    setSaving(true);
+    try {
+      const { data } = await api.put("/settings", payload);
+      const updatedUser = data.data ?? data;
+      // Keep Redux (and the navbar/sidebar that read it) in sync.
+      if (updatedUser) dispatch(setCredentials({ user: updatedUser, token }));
+      setSecurity({ current: "", next: "", confirm: "" });
+      setSuccess("Settings saved successfully.");
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -67,7 +137,7 @@ export default function Settings() {
           </label>
           <label className="block">
             <span className={labelClass}>Email</span>
-            <input name="email" type="email" value={profile.email} onChange={onProfile} className={inputClass} />
+            <input name="email" type="email" value={profile.email} disabled className={`${inputClass} cursor-not-allowed opacity-70`} />
           </label>
           <label className="block">
             <span className={labelClass}>Phone</span>
@@ -127,19 +197,29 @@ export default function Settings() {
         </div>
       </section>
 
+      {/* Messages */}
+      {error && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</p>
+      )}
+      {success && (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">{success}</p>
+      )}
+
       {/* Save */}
       <div className="flex justify-end gap-3">
         <button
           type="button"
-          className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+          disabled={saving}
+          className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="rounded-full bg-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-200 transition hover:bg-emerald-600"
+          disabled={saving || loading}
+          className="rounded-full bg-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-200 transition hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Save Changes
+          {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </form>

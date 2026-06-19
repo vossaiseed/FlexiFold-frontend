@@ -52,7 +52,6 @@ export default function Register() {
         }),
       });
       const data = await res.json();
-      console.log(data)
       if (!res.ok) throw new Error(data.message || "Registration failed");
       // Account created — send the partner to the login page to sign in.
       navigate("/login");

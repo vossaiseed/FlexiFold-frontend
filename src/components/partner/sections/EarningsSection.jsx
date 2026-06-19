@@ -1,22 +1,53 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchConversions, selectConversions } from "../../../redux/features/conversions/conversionsSlice";
+import { formatLeadDate } from "../../../utils/leadHelpers";
 
-const summary = [
-  { label: "Total Earnings", value: "₹1,24,000", color: "text-slate-900" },
-  { label: "This Month", value: "₹18,500", color: "text-emerald-600" },
-  { label: "Pending", value: "₹6,000", color: "text-amber-600" },
-  { label: "Paid Out", value: "₹1,00,000", color: "text-violet-600" },
-];
+const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
-const history = [
-  { id: 1, lead: "Toji Joseph", date: "09 May 2026", amount: "₹12,000", status: "Paid" },
-  { id: 2, lead: "Sidharth Roy", date: "02 May 2026", amount: "₹6,500", status: "Pending" },
-  { id: 3, lead: "Arun Public RV", date: "25 Apr 2026", amount: "₹9,000", status: "Paid" },
-  { id: 4, lead: "Hashir Ali", date: "13 Apr 2026", amount: "₹4,500", status: "Paid" },
-];
-
-const statusStyle = { Paid: "bg-emerald-50 text-emerald-600", Pending: "bg-amber-50 text-amber-600" };
+const statusStyle = {
+  Approved: "bg-emerald-50 text-emerald-600",
+  Pending: "bg-amber-50 text-amber-600",
+  Rejected: "bg-red-50 text-red-600",
+};
 
 export default function EarningsSection() {
+  const dispatch = useDispatch();
+  const leads = useSelector((s) => s.leads.leads);
+  const conversions = useSelector(selectConversions);
+
+  useEffect(() => {
+    dispatch(fetchConversions());
+  }, [dispatch]);
+
+  // Earnings come from conversions on this partner's leads (store is scoped to
+  // the partner's leads, so we match conversions by those lead ids).
+  const myConversions = useMemo(() => {
+    const myLeadIds = new Set((leads || []).map((l) => l.id));
+    return (conversions || []).filter((c) => myLeadIds.has(c.lead_id));
+  }, [leads, conversions]);
+
+  const now = new Date();
+  const amt = (c) => Number(c.amount) || 0;
+  const approved = myConversions.filter((c) => c.status === "Approved");
+  const totalEarnings = approved.reduce((s, c) => s + amt(c), 0);
+  const pending = myConversions
+    .filter((c) => c.status === "Pending")
+    .reduce((s, c) => s + amt(c), 0);
+  const thisMonth = approved
+    .filter((c) => {
+      const d = new Date(c.created_at);
+      return !isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    })
+    .reduce((s, c) => s + amt(c), 0);
+
+  const summary = [
+    { label: "Total Earnings", value: inr(totalEarnings), color: "text-slate-900" },
+    { label: "This Month", value: inr(thisMonth), color: "text-emerald-600" },
+    { label: "Pending", value: inr(pending), color: "text-amber-600" },
+    { label: "Paid Out", value: inr(totalEarnings), color: "text-violet-600" },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -30,20 +61,26 @@ export default function EarningsSection() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-bold text-slate-800">Earnings History</h2>
-        <div className="divide-y divide-slate-100">
-          {history.map((h) => (
-            <div key={h.id} className="flex items-center justify-between gap-3 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">{h.lead}</p>
-                <p className="text-xs text-slate-400">{h.date}</p>
+        {myConversions.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">No earnings yet.</p>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {myConversions.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-3 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{c.lead_name || c.customer_name || "Lead"}</p>
+                  <p className="text-xs text-slate-400">{formatLeadDate(c.created_at)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-slate-900">{inr(c.amount)}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusStyle[c.status] || "bg-slate-100 text-slate-600"}`}>
+                    {c.status}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-bold text-slate-900">{h.amount}</span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusStyle[h.status]}`}>{h.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -10,8 +10,10 @@ import { Navigate, Outlet } from "react-router-dom";
 export default function ProtectedRoute({ allowedRoles }) {
   const { user, token } = useSelector((store) => store.auth);
 
-  // Not signed in → go to login.
-  if (!token) {
+  // Not signed in → go to login. If the token is httpOnly we can't read it
+  // from JavaScript, so also allow a persisted `user` as a fallback.
+  const isAuthenticated = token || user;
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

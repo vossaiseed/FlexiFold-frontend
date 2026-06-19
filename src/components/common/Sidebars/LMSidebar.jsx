@@ -1,34 +1,49 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { LayoutDashboard, Inbox, Users, Bell, Plus, ArrowLeft, ChevronUp, LogOut } from "lucide-react";
 import AddLead from "../../admin/Partner/PartnerDetails/AddLead";
+import { logout as logoutAction } from "../../../redux/features/auth/authSlice";
+import api from "../../../redux/services/api";
 
-const navItems = [
-  { label: "Overview", icon: LayoutDashboard, to: "/lead-manager/dashboard" },
-  { label: "Leads", icon: Inbox, to: "/lead-manager/leads" },
-  { label: "Sales Team", icon: Users, to: "/lead-manager/sales-team" },
-  { label: "Alerts", icon: Bell, badge: 2, to: "/lead-manager/alerts" },
-];
+const CLOSED = ["Converted", "Failed", "Rejected"];
+const isInactive48 = (l) => {
+  if (CLOSED.includes(l?.status)) return false;
+  const d = new Date(l?.created_at);
+  return !isNaN(d.getTime()) && Date.now() - d.getTime() > 48 * 3600 * 1000;
+};
 
 export default function LMSidebar() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const leads = useSelector((state) => state.leads.leads) || [];
+  const role = user?.user_metadata?.role;
+
+  // Live alert count (inactive 48h+ leads) — drives the Alerts badge.
+  const alertCount = leads.filter(isInactive48).length;
+  const navItems = [
+    { label: "Overview", icon: LayoutDashboard, to: "/lead-manager/dashboard" },
+    { label: "Leads", icon: Inbox, to: "/lead-manager/leads" },
+    { label: "Sales Team", icon: Users, to: "/lead-manager/sales-team" },
+    { label: "Alerts", icon: Bell, badge: alertCount, to: "/lead-manager/alerts" },
+  ];
+  // An admin is here because they came from the Admin dashboard → offer "Back to
+  // Admin". A lead manager who logged in directly → offer "Logout".
+  const fromAdmin = role === "admin";
+  const displayName = user?.user_metadata?.name || (fromAdmin ? "Admin" : "Lead Manager");
+
   const [showAddLead, setShowAddLead] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Was this dashboard opened from the Admin view? (set when an admin clicks a Lead Manager card)
-  const [fromAdmin] = useState(() => {
-    try {
-      return sessionStorage.getItem("lmFromAdmin") === "1";
-    } catch {
-      return false;
-    }
-  });
 
   const backToAdmin = () => {
     try { sessionStorage.removeItem("lmFromAdmin"); } catch { /* ignore */ }
     navigate("/admin/dashboard");
   };
-  const logout = () => {
+  const handleLogout = async () => {
     try { sessionStorage.removeItem("lmFromAdmin"); } catch { /* ignore */ }
+    try { await api.post("/auth/logout"); } catch { /* ignore — clear client state anyway */ }
+    dispatch(logoutAction());
     navigate("/login");
   };
 
@@ -61,7 +76,7 @@ export default function LMSidebar() {
               <>
                 <span className="shrink-0"><Icon className="h-5 w-5" /></span>
                 <span className="flex-1 text-left">{label}</span>
-                {badge && (
+                {badge > 0 && (
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
                       isActive ? "bg-white/25 text-white" : "bg-green-50 text-green-600"
@@ -97,7 +112,7 @@ export default function LMSidebar() {
               </button>
             ) : (
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
               >
                 <LogOut className="h-4 w-4" /> Logout
@@ -110,10 +125,10 @@ export default function LMSidebar() {
           className="flex w-full items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-gray-50"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500">
-            <span className="text-xs font-bold text-white">A</span>
+            <span className="text-xs font-bold text-white">{displayName?.[0]?.toUpperCase() || "U"}</span>
           </div>
           <div className="min-w-0 flex-1 text-left">
-            <div className="truncate text-xs font-semibold text-gray-800">Admin</div>
+            <div className="truncate text-xs font-semibold text-gray-800">{displayName}</div>
             <div className="text-xs text-gray-400">Lead Manager</div>
           </div>
           <ChevronUp className={`h-4 w-4 shrink-0 text-gray-400 transition ${menuOpen ? "rotate-180" : ""}`} />

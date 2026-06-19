@@ -1,7 +1,18 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { LogOut } from "lucide-react";
 import UserMenu from "../UserMenu";
+import { logout as logoutAction } from "../../../redux/features/auth/authSlice";
+import api from "../../../redux/services/api";
+
+const ROLE_LABELS = {
+  admin: "Administrator",
+  "lead-manager": "Lead Manager",
+  partner: "Partner",
+  sales: "Sales",
+  telecaller: "Telecaller",
+};
 
 const navItems = [
   {
@@ -86,6 +97,15 @@ const navItems = [
     ),
   },
   {
+    label: "History",
+    path: "/admin/history",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
     label: "Settings",
     path: "/admin/settings",
     icon: (
@@ -109,11 +129,30 @@ const navItems = [
 
 
 export default function AdminSidebar() {
-  const [active, setActive] = useState("Overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
-  
+  const dispatch = useDispatch();
+  const { pathname } = useLocation();
+
+  // Drive the highlight from the URL so it never desyncs from the page.
+  const isActivePath = (path) => pathname === path || pathname.startsWith(path + "/");
+  const active = navItems.find((i) => isActivePath(i.path))?.label || "Overview";
+
+  // Logged-in user info for the sidebar profile.
+  const { user } = useSelector((s) => s.auth);
+  const meta = user?.user_metadata || {};
+  const displayName = meta.name || "User";
+  const displayRole = ROLE_LABELS[meta.role] || meta.role || "";
+  const displayInitial = (displayName?.[0] || "U").toUpperCase();
+
+  const handleLogout = async () => {
+    setUserMenuOpen(false);
+    try { await api.post("/auth/logout"); } catch { /* ignore — clear client state anyway */ }
+    dispatch(logoutAction());
+    navigate("/login");
+  };
+
 
   return (
     <>
@@ -137,7 +176,7 @@ export default function AdminSidebar() {
             return (
               <button
                 key={item.label}
-                onClick={()=>{setActive(item.label) ; navigate(item.path);}}
+                onClick={() => navigate(item.path)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150"
                 style={{
                   background: isActive ? "#22c55e" : "transparent",
@@ -179,7 +218,7 @@ export default function AdminSidebar() {
           {userMenuOpen && (
             <div className="absolute bottom-full left-2 right-2 mb-2 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
               <button
-                onClick={() => { setUserMenuOpen(false); navigate("/login"); }}
+                onClick={handleLogout}
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
               >
                 <LogOut className="h-4 w-4" /> Logout
@@ -191,11 +230,11 @@ export default function AdminSidebar() {
             className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all hover:bg-gray-50"
           >
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-green-500">
-              <span className="text-white text-xs font-bold">S</span>
+              <span className="text-white text-xs font-bold">{displayInitial}</span>
             </div>
             <div className="flex-1 min-w-0 text-left">
-              <div className="text-xs font-semibold truncate text-gray-800">Shibili Shibu</div>
-              <div className="text-xs text-gray-400">Administrator</div>
+              <div className="text-xs font-semibold truncate text-gray-800">{displayName}</div>
+              <div className="text-xs text-gray-400">{displayRole}</div>
             </div>
             <svg xmlns="http://www.w3.org/2000/svg" className={`w-4 h-4 text-gray-400 shrink-0 transition ${userMenuOpen ? "" : "rotate-180"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -219,12 +258,12 @@ export default function AdminSidebar() {
         {/* Page title */}
         <span className="text-sm font-bold text-gray-900">{active}</span>
 
-        {/* Right: Admin badge + logout */}
+        {/* Right: role badge + logout */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#ede9fe", color: "#7c3aed" }}>
-            Admin
+            {displayRole || "Admin"}
           </span>
-          <button className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+          <button onClick={handleLogout} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
@@ -270,7 +309,7 @@ export default function AdminSidebar() {
                 return (
                   <button
                     key={item.label}
-                    onClick={() => { setActive(item.label); setDrawerOpen(false); navigate(item.path); }}
+                    onClick={() => { setDrawerOpen(false); navigate(item.path); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150"
                     style={{
                       background: isActive ? "#22c55e" : "transparent",
@@ -299,11 +338,11 @@ export default function AdminSidebar() {
             <div className="px-2 py-3 border-t border-gray-200">
               <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center bg-green-500 shrink-0">
-                  <span className="text-white text-xs font-bold">S</span>
+                  <span className="text-white text-xs font-bold">{displayInitial}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-gray-800 truncate">Shibili Shibu</div>
-                  <div className="text-xs text-gray-400">User</div>
+                  <div className="text-xs font-semibold text-gray-800 truncate">{displayName}</div>
+                  <div className="text-xs text-gray-400">{displayRole}</div>
                 </div>
               </div>
             </div>
@@ -317,7 +356,7 @@ export default function AdminSidebar() {
         <span className="text-base font-bold text-gray-900">{active}</span>
 
         {/* Right: User menu */}
-        <UserMenu name="Shibili Shibu" role="Administrator" email="admin@flexifold.com" initial="S" />
+        <UserMenu />
       </div>
 
     </>

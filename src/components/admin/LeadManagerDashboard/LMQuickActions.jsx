@@ -1,12 +1,28 @@
-import React from "react";
+import React, { useState } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { selectSalesTeam } from "../../../redux/features/salesTeam/salesTeamSlice";
+import AddLead from "../../admin/Partner/PartnerDetails/AddLead";
 
-const actions = [
-  { label: "Pending Review", count: 0, emoji: "⏳", danger: false },
-  { label: "Inactive Alerts", count: 2, emoji: "⚠️", danger: true },
-  { label: "Sales Team", count: 3, emoji: "👥", danger: false },
-];
+const CLOSED = ["Converted", "Failed", "Rejected"];
+const isInactive48 = (l) => {
+  if (CLOSED.includes(l?.status)) return false;
+  const d = new Date(l?.created_at);
+  return !isNaN(d.getTime()) && Date.now() - d.getTime() > 48 * 3600 * 1000;
+};
 
 export default function LMQuickActions() {
+  const navigate = useNavigate();
+  const leads = useSelector((s) => s.leads.leads) || [];
+  const staff = useSelector(selectSalesTeam) || [];
+  const [showAddLead, setShowAddLead] = useState(false);
+
+  const actions = [
+    { label: "Pending Review", count: leads.filter((l) => l.status === "Pending").length, emoji: "⏳", danger: false, to: "/lead-manager/leads" },
+    { label: "Inactive Alerts", count: leads.filter(isInactive48).length, emoji: "⚠️", danger: true, to: "/lead-manager/alerts" },
+    { label: "Sales Team", count: staff.length, emoji: "👥", danger: false, to: "/lead-manager/sales-team" },
+  ];
+
   return (
     <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-2">
@@ -14,7 +30,10 @@ export default function LMQuickActions() {
         <span className="text-[13px] font-bold text-slate-800">Quick Actions</span>
       </div>
 
-      <button className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-3 text-[13px] font-semibold text-white transition hover:bg-emerald-600">
+      <button
+        onClick={() => setShowAddLead(true)}
+        className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-3 text-[13px] font-semibold text-white transition hover:bg-emerald-600"
+      >
         <span className="text-base leading-none">+</span> Add Lead
       </button>
 
@@ -22,6 +41,7 @@ export default function LMQuickActions() {
         {actions.map((a) => (
           <button
             key={a.label}
+            onClick={() => navigate(a.to)}
             className="flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-gray-50 px-3.5 py-3 text-left transition hover:bg-slate-100"
           >
             <span className="text-base">{a.emoji}</span>
@@ -34,6 +54,8 @@ export default function LMQuickActions() {
           </button>
         ))}
       </div>
+
+      {showAddLead && <AddLead onClose={() => setShowAddLead(false)} />}
     </section>
   );
 }
