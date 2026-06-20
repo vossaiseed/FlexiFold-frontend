@@ -14,6 +14,12 @@ export const REJECTED_STATUS = "Rejected";
 
 export const isPending = (lead) => PENDING_STATUSES.includes(lead?.status);
 
+// A lead is "converted" once its status is Converted (admin approves a
+// conversion) — or its computed effectiveStatus is Converted (telecaller view).
+// Site Visit / Measurement / Model steps only unlock after this point.
+export const isConverted = (lead) =>
+  lead?.status === "Converted" || lead?.effectiveStatus === "Converted";
+
 // Date + time, e.g. "16 Jun 2026, 10:07 am"
 export const formatLeadTime = (value) => {
   if (!value) return "";

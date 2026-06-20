@@ -8,7 +8,7 @@ import LeadModal from "./LeadModal";
 // in the data get a tab, so this component stays correct whatever it's fed.
 const STATUS_ORDER = ["New", "Pending", "Discussion", "Follow-up", "In Progress", "Converted", "Failed", "Rejected"];
 
-export default function Leadcategory({ leadsData = defaultLeadsData, onDelete }) {
+export default function Leadcategory({ leadsData = defaultLeadsData, onDelete, onSelect }) {
   const [activeTab, setActiveTab] = useState("All");
   const [query, setQuery] = useState("");
   const [leads, setLeads] = useState(Array.isArray(leadsData) ? leadsData : []);
@@ -102,11 +102,11 @@ export default function Leadcategory({ leadsData = defaultLeadsData, onDelete })
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-3">
           {filtered.map(lead => (
-            lead ? <LeadCard key={lead.id} lead={lead} onDelete={handleDelete} onClick={() => setSelectedLead(lead)} /> : null
+            lead ? <LeadCard key={lead.id} lead={lead} onDelete={handleDelete} onClick={() => (onSelect ? onSelect(lead) : setSelectedLead(lead))} /> : null
           ))}
         </div>
       )}
-      {selectedLead ? <LeadModal lead={selectedLead} onClose={closeModal} /> : null}
+      {!onSelect && selectedLead ? <LeadModal lead={selectedLead} onClose={closeModal} /> : null}
     </div>
   );
 }

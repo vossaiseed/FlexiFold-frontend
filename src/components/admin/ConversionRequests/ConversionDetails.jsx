@@ -1,13 +1,36 @@
-import React from "react";
-import { formatLeadDate } from "../../../utils/leadHelpers";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchSalesTeam, selectSalesTeam } from "../../../redux/features/salesTeam/salesTeamSlice";
+import { getLeadId, formatLeadDate } from "../../../utils/leadHelpers";
 
 export default function ConversionDetails({ conversion, onBack, onApprove, onReject }) {
   const c = conversion || {};
+  const dispatch = useDispatch();
+  const salesTeam = useSelector(selectSalesTeam) || [];
+  const leads = useSelector((s) => s.leads.leads) || [];
+  const [salesId, setSalesId] = useState("");
+  const isPending = (c.status || "Pending") === "Pending";
+
+  useEffect(() => { dispatch(fetchSalesTeam()); }, [dispatch]);
+
+  const handleApprove = () => {
+    const member = salesTeam.find((s) => String(getLeadId(s)) === String(salesId)) || null;
+    onApprove(member);
+  };
+
+  // Prefer the lead's current conversion_amount (latest, from Telecaller OR Sales)
+  // read straight from the store so it's always fresh; fall back to the request.
+  const hasVal = (v) => v !== null && v !== undefined && v !== "";
+  const leadRow = leads.find((l) => getLeadId(l) === c.lead_id);
+  const effAmount = hasVal(leadRow?.conversion_amount)
+    ? leadRow.conversion_amount
+    : (c.effective_amount ?? c.lead_conversion_amount ?? c.amount);
+
   const data = {
     leadName: c.lead_name || "—",
     customerName: c.customer_name || c.lead_name || "—",
     salesStaff: c.sales_staff_name || "Unassigned",
-    amount: c.amount === null || c.amount === undefined || c.amount === "" ? "—" : `₹${c.amount}`,
+    amount: hasVal(effAmount) ? `₹${effAmount}` : "—",
     date: formatLeadDate(c.created_at),
     status: c.status || "Pending",
     notes: c.notes || "No notes.",
@@ -24,7 +47,19 @@ export default function ConversionDetails({ conversion, onBack, onApprove, onRej
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-600">Conversion details</p>
           <h3 className="mt-2 text-2xl font-semibold text-slate-950">Lead and conversion overview</h3>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {isPending && (
+            <select
+              value={salesId}
+              onChange={(e) => setSalesId(e.target.value)}
+              className="rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            >
+              <option value="">Assign to Sales Team… (optional)</option>
+              {salesTeam.map((s) => (
+                <option key={getLeadId(s)} value={getLeadId(s)}>{s.name}</option>
+              ))}
+            </select>
+          )}
           <button
             type="button"
             onClick={onBack}
@@ -41,7 +76,7 @@ export default function ConversionDetails({ conversion, onBack, onApprove, onRej
           </button>
           <button
             type="button"
-            onClick={onApprove}
+            onClick={handleApprove}
             className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >
             Approve

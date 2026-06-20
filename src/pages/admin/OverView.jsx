@@ -9,11 +9,16 @@ import SalesCapacityCard from '../../components/admin/Overview/SalesCapacityCard
 import PartnerPerformanceCard from '../../components/admin/Overview/PartnerPerformanceCard'
 import LeadTrendChart from '../../components/admin/Overview/LeadTrendChart'
 import LeadStatusCard from '../../components/admin/Overview/LeadStatusCard'
+import PipelineStatsCard from '../../components/admin/Overview/PipelineStatsCard'
 import { fetchLeads } from '../../redux/features/leads/leadsSlice'
 import { fetchPartners } from '../../redux/features/partners/partnersSlice'
 import { fetchSalesTeam } from '../../redux/features/salesTeam/salesTeamSlice'
 import { fetchLeadManagers } from '../../redux/features/leadManagers/leadManagersSlice'
 import { fetchConversions } from '../../redux/features/conversions/conversionsSlice'
+import { fetchSiteVisits } from '../../redux/features/siteVisits/siteVisitsSlice'
+import { fetchMeasurements } from '../../redux/features/measurements/measurementsSlice'
+import { fetchModels } from '../../redux/features/models/modelsSlice'
+import { fetchProjects } from '../../redux/features/projects/projectsSlice'
 
 
 export default function OverView() {
@@ -26,6 +31,10 @@ export default function OverView() {
     dispatch(fetchSalesTeam());
     dispatch(fetchLeadManagers());
     dispatch(fetchConversions());
+    dispatch(fetchSiteVisits());
+    dispatch(fetchMeasurements());
+    dispatch(fetchModels());
+    dispatch(fetchProjects());
   }, [dispatch]);
 
   return (
@@ -41,6 +50,7 @@ export default function OverView() {
         <PartnerPerformanceCard />
         <LeadTrendChart />
         <LeadStatusCard />
+        <PipelineStatsCard />
       </div>
     </div>
   )

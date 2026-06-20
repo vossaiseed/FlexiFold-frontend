@@ -4,7 +4,7 @@ import ConversionStats from "../../components/admin/ConversionRequests/Conversio
 import ConversionRequestsTable from "../../components/admin/ConversionRequests/ConversionRequestsTable";
 import ConversionDetails from "../../components/admin/ConversionRequests/ConversionDetails";
 import { fetchConversions, updateConversion } from "../../redux/features/conversions/conversionsSlice";
-import { updateLead } from "../../redux/features/leads/leadsSlice";
+import { fetchLeads, updateLead } from "../../redux/features/leads/leadsSlice";
 
 export default function ConversionRequestsSection() {
   const dispatch = useDispatch();
@@ -12,14 +12,21 @@ export default function ConversionRequestsSection() {
 
   useEffect(() => {
     dispatch(fetchConversions());
+    dispatch(fetchLeads()); // keep lead conversion_amount fresh for display
   }, [dispatch]);
 
-  // Approving a conversion request also marks the underlying lead "Converted".
-  const decide = async (conversion, status) => {
+  // Approving a conversion marks the lead "Converted" and assigns it to the
+  // chosen Sales Team member (so it shows up on their dashboard for fulfilment).
+  const decide = async (conversion, status, salesMember) => {
     if (!conversion?.id) return;
     await dispatch(updateConversion({ id: conversion.id, changes: { status } }));
     if (status === "Approved" && conversion.lead_id) {
-      dispatch(updateLead({ leadId: conversion.lead_id, changes: { status: "Converted" } }));
+      const changes = { status: "Converted" };
+      if (salesMember) {
+        changes.assigned_sales_id = String(salesMember.id ?? salesMember._id);
+        changes.assigned_sales_name = salesMember.name;
+      }
+      dispatch(updateLead({ leadId: conversion.lead_id, changes }));
     }
     setSelectedConversion(null);
   };
@@ -33,7 +40,7 @@ export default function ConversionRequestsSection() {
           <ConversionDetails
             conversion={selectedConversion}
             onBack={() => setSelectedConversion(null)}
-            onApprove={() => decide(selectedConversion, "Approved")}
+            onApprove={(member) => decide(selectedConversion, "Approved", member)}
             onReject={() => decide(selectedConversion, "Rejected")}
           />
         )}

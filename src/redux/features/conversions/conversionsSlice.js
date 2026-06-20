@@ -48,6 +48,19 @@ export const updateConversion = createAsyncThunk(
   }
 );
 
+// PUT /conversions/:id/amount — Sales sets the final amount/notes (sales-allowed)
+export const updateConversionAmount = createAsyncThunk(
+  "conversions/updateAmount",
+  async ({ id, amount, notes }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.put(`${CONV_URL}/${id}/amount`, { amount, notes });
+      return data.data ?? data;
+    } catch (error) {
+      return rejectWithValue(getApiError(error));
+    }
+  }
+);
+
 // DELETE /conversions/:id — remove a conversion
 export const deleteConversion = createAsyncThunk(
   "conversions/delete",
@@ -91,6 +104,13 @@ const conversionsSlice = createSlice({
         const updated = action.payload;
         const updatedId = getConvId(updated);
         // The PUT response isn't enriched with names; merge so we keep them.
+        state.items = state.items.map((c) =>
+          getConvId(c) === updatedId ? { ...c, ...updated } : c
+        );
+      })
+      .addCase(updateConversionAmount.fulfilled, (state, action) => {
+        const updated = action.payload;
+        const updatedId = getConvId(updated);
         state.items = state.items.map((c) =>
           getConvId(c) === updatedId ? { ...c, ...updated } : c
         );

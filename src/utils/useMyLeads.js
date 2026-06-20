@@ -46,7 +46,10 @@ export default function useMyLeads() {
       .filter(
         (l) =>
           (l.assigned_to && myIds.has(l.assigned_to)) ||
-          (myName && norm(l.assigned_name) === myName)
+          (l.assigned_sales_id && myIds.has(l.assigned_sales_id)) ||
+          (myName && norm(l.assigned_name) === myName) ||
+          (myName && norm(l.assigned_sales_name) === myName) ||
+          (myName && norm(l.assigned_telecaller_name) === myName)
       )
       .map((l) => {
         const cs = convStatus[l.id];

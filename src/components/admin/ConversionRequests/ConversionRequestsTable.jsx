@@ -14,17 +14,18 @@ const statusStyles = {
   Rejected: "bg-red-100 text-red-700",
 };
 
-const money = (amount) =>
-  amount === null || amount === undefined || amount === "" ? "—" : `₹${amount}`;
+const hasVal = (v) => v !== null && v !== undefined && v !== "";
+const money = (amount) => (hasVal(amount) ? `₹${amount}` : "—");
 
-// Map a backend conversion row → the shape this table renders. Keep `raw` so
-// the details view gets the full record.
-const toRow = (c) => ({
+// Map a backend conversion row → the shape this table renders. `leadAmount` is
+// the lead's current conversion_amount from the store (latest, set by Telecaller
+// or Sales). Keep `raw` so the details view gets the full record.
+const toRow = (c, leadAmount) => ({
   id: c.id,
   leadName: c.lead_name || "—",
   customerName: c.customer_name || c.lead_name || "—",
   salesStaff: c.sales_staff_name || "Unassigned",
-  amount: money(c.amount),
+  amount: money(hasVal(leadAmount) ? leadAmount : (c.effective_amount ?? c.lead_conversion_amount ?? c.amount)),
   date: formatLeadDate(c.created_at),
   status: c.status || "Pending",
   raw: c,
@@ -34,6 +35,14 @@ export default function ConversionRequestsTable({ onView }) {
   const dispatch = useDispatch();
   const conversions = useSelector(selectConversions);
   const loading = useSelector(selectConversionsLoading);
+  const leads = useSelector((s) => s.leads.leads);
+
+  // lead_id -> latest conversion_amount on the lead (kept fresh in the store).
+  const leadAmtById = useMemo(() => {
+    const m = {};
+    (leads || []).forEach((l) => { m[l.id ?? l._id] = l.conversion_amount; });
+    return m;
+  }, [leads]);
 
   const [search, setSearch] = useState("");
   // Default to the actionable queue — decided (Approved/Rejected) requests drop
@@ -43,7 +52,10 @@ export default function ConversionRequestsTable({ onView }) {
   const [busyId, setBusyId] = useState(null);
   const pageSize = 5;
 
-  const rows = useMemo(() => (conversions || []).map(toRow), [conversions]);
+  const rows = useMemo(
+    () => (conversions || []).map((c) => toRow(c, leadAmtById[c.lead_id])),
+    [conversions, leadAmtById]
+  );
 
   const emptyMsg = loading
     ? "Loading conversions…"
